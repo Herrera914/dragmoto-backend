@@ -1,0 +1,399 @@
+/* ──────────────────────────────────────────────────────────────── */
+/*  DragMoto Telemetría — Estilos                                   */
+/*  Estética: industrial / race-spec / datos-primero                */
+/* ──────────────────────────────────────────────────────────────── */
+
+:root {
+  --bg:         #07080c;
+  --surface:    #0e0f16;
+  --surface2:   #141520;
+  --border:     #1c1d2b;
+  --orange:     #f97316;
+  --blue:       #3b82f6;
+  --green:      #22c55e;
+  --red:        #ef4444;
+  --text:       #e2e8f0;
+  --muted:      #4a5568;
+  --font-data:  'Space Mono', monospace;
+  --font-disp:  'Bebas Neue', sans-serif;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-data);
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  height: 56px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.brand-icon  { font-size: 1.3rem; }
+.brand-name  { font-family: var(--font-disp); font-size: 1.5rem; letter-spacing: 0.1em; color: var(--orange); }
+.brand-sub   { font-size: 0.6rem; color: var(--muted); letter-spacing: 0.2em; }
+
+.app-nav     { display: flex; gap: 4px; }
+
+.nav-link {
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  background: rgba(249,115,22,0.1);
+  color: var(--orange);
+}
+
+/* ── Main ────────────────────────────────────────────────────── */
+.app-main {
+  min-height: calc(100vh - 56px);
+  padding: 20px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+/* ── Dashboard grid ──────────────────────────────────────────── */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr 220px;
+  grid-template-rows: auto auto;
+  gap: 16px;
+}
+
+/* ── Panel base ──────────────────────────────────────────────── */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.panel-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+/* ── Panel velocímetro ───────────────────────────────────────── */
+.panel-speed {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Directiva velocímetro ───────────────────────────────────── */
+.velocimetro-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.velocimetro-svg { width: 100%; max-width: 220px; }
+
+.vel-max {
+  font-size: 0.65rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  margin-top: 8px;
+}
+
+/* ── Estado badge ────────────────────────────────────────────── */
+.estado-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-top: 16px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+
+.estado-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.estado-live .estado-dot {
+  background: var(--green);
+  animation: pulso 1.4s infinite;
+}
+
+@keyframes pulso {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* ── Panel métricas ──────────────────────────────────────────── */
+.panel-metrics {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.metric-block  { display: flex; flex-direction: column; gap: 6px; }
+.metric-label  { font-size: 0.6rem; letter-spacing: 0.15em; color: var(--muted); }
+
+.metric-value {
+  font-family: var(--font-disp);
+  font-size: 3.5rem;
+  line-height: 1;
+  color: var(--text);
+  transition: color 0.3s;
+}
+
+.metric-unit  { font-size: 1rem; color: var(--muted); }
+.metric-sub   { font-size: 0.65rem; color: var(--muted); }
+
+.accent-orange { color: var(--orange) !important; }
+.accent-blue   { color: var(--blue)   !important; }
+.accent-green  { color: var(--green)  !important; }
+.muted         { color: var(--muted); }
+
+/* Barra de aceleración */
+.barra-bg {
+  width: 100%;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.barra-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--blue), var(--orange));
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* Hitos de distancia */
+.hito {
+  font-size: 0.7rem;
+  color: var(--muted);
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: inline-block;
+  margin-right: 8px;
+  transition: all 0.3s;
+}
+
+.hito-done {
+  color: var(--green);
+  border-color: var(--green);
+  background: rgba(34,197,94,0.08);
+}
+
+/* ── Panel sprints ───────────────────────────────────────────── */
+.panel-sprints {
+  grid-column: 3;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sprint-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+
+.sprint-done {
+  border-color: var(--orange);
+  background: rgba(249,115,22,0.06);
+}
+
+.sprint-lbl  { font-size: 0.6rem; color: var(--muted); letter-spacing: 0.06em; }
+.sprint-val  { font-size: 0.9rem; font-weight: 700; color: var(--muted); }
+.sprint-done .sprint-val { color: var(--orange); }
+
+/* ── Panel gráfica ───────────────────────────────────────────── */
+.panel-chart {
+  grid-column: 1 / 4;
+  grid-row: 2;
+}
+
+#speedChart { max-height: 160px; }
+
+/* ── Historial ───────────────────────────────────────────────── */
+.historial-wrap { display: flex; flex-direction: column; gap: 20px; }
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-label { font-size: 0.6rem; letter-spacing: 0.15em; color: var(--muted); margin-bottom: 8px; }
+
+.stat-val {
+  font-family: var(--font-disp);
+  font-size: 2rem;
+  color: var(--text);
+}
+
+.controles-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.input-busqueda {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 14px;
+  color: var(--text);
+  font-family: var(--font-data);
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-busqueda:focus { border-color: var(--orange); }
+
+.btn-recargar {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 16px;
+  color: var(--muted);
+  font-family: var(--font-data);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-recargar:hover { border-color: var(--orange); color: var(--orange); }
+
+/* Tabla */
+.tabla-runs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.tabla-runs th {
+  text-align: left;
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+}
+
+.tabla-runs th:hover { color: var(--orange); }
+
+.tabla-runs td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabla-runs tr:hover td { background: rgba(255,255,255,0.015); }
+
+.btn-eliminar {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  transition: all 0.2s;
+}
+
+.btn-eliminar:hover { border-color: var(--red); color: var(--red); }
+
+/* Badges */
+.badge { padding: 2px 8px; border-radius: 4px; font-size: 0.6rem; letter-spacing: 0.08em; }
+.badge-excelente { background: rgba(34,197,94,0.15);  color: var(--green); }
+.badge-buena     { background: rgba(34,197,94,0.15);  color: var(--green); }
+.badge-regular   { background: rgba(249,115,22,0.15); color: var(--orange); }
+.badge-pobre     { background: rgba(239,68,68,0.15);  color: var(--red); }
+.badge-muted     { background: var(--surface2); color: var(--muted); }
+
+/* Estados */
+.estado-carga, .estado-error, .estado-vacio {
+  padding: 48px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.estado-error { color: var(--red); }
+
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--orange);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Fila más reciente */
+.fila-nuevo td { color: var(--orange); }
+.fila-nuevo:not(:first-child) td { color: var(--text); }
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 960px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto;
+  }
+  .panel-speed   { grid-column: 1 / 3; }
+  .panel-sprints { grid-column: 1 / 3; }
+  .panel-chart   { grid-column: 1 / 3; }
+  .stats-row     { grid-template-columns: repeat(2, 1fr); }
+}

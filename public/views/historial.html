@@ -1,0 +1,105 @@
+<!--
+  ── VISTA: historial.html ────────────────────────────────────────
+  DEMOSTRACIÓN DEL FRAMEWORK — ng-repeat y consumo de API:
+  - ng-repeat itera el array $scope.runs y genera las filas
+  - ng-show / ng-if controlan estados de carga y error
+  - El filtro 'filter:busqueda' busca en tiempo real
+  - orderBy ordena la tabla por columna
+  ────────────────────────────────────────────────────────────────
+-->
+
+<div class="historial-wrap">
+
+  <!-- Estadísticas globales — datos de GET /api/runs/stats -->
+  <div class="stats-row" ng-if="stats">
+    <div class="stat-card">
+      <div class="stat-label">TOTAL RUNS</div>
+      <div class="stat-val">{{ stats.totalRuns }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">MEJOR TOP SPEED</div>
+      <div class="stat-val accent-orange">{{ stats.bestTopSpeed | kmh }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">MEJOR 0→100</div>
+      <div class="stat-val accent-blue">{{ stats.bestZeroTo100 | sprint }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">MEJOR ¼ MILLA</div>
+      <div class="stat-val accent-green">{{ stats.bestQuarterMile | sprint }}</div>
+    </div>
+  </div>
+
+  <!-- Barra de controles -->
+  <div class="controles-row">
+    <!-- Búsqueda en tiempo real — two-way binding con $scope.busqueda -->
+    <input class="input-busqueda"
+           type="text"
+           ng-model="busqueda"
+           placeholder="Buscar por vehículo...">
+
+    <button class="btn-recargar" ng-click="recargar()">↺ Recargar</button>
+  </div>
+
+  <!-- Estado: cargando -->
+  <div class="estado-carga" ng-if="cargando">
+    <div class="spinner"></div>
+    <span>Cargando historial...</span>
+  </div>
+
+  <!-- Estado: error de conexión -->
+  <div class="estado-error" ng-if="error">
+    ⚠ {{ error }}
+  </div>
+
+  <!-- Tabla de runs — ng-repeat genera una fila por cada run -->
+  <table class="tabla-runs" ng-if="!cargando && !error && runs.length">
+    <thead>
+      <tr>
+        <!-- ng-click en headers para ordenar por columna -->
+        <th ng-click="ordenarColumna('created_at')">Fecha</th>
+        <th ng-click="ordenarColumna('vehicle_name')">Vehículo</th>
+        <th ng-click="ordenarColumna('top_speed')">Top Speed</th>
+        <th ng-click="ordenarColumna('zero_to_60')">0→60</th>
+        <th ng-click="ordenarColumna('zero_to_100')">0→100</th>
+        <th ng-click="ordenarColumna('quarter_mile')">¼ milla</th>
+        <th ng-click="ordenarColumna('trap_speed_quarter')">Trap</th>
+        <th ng-click="ordenarColumna('total_distance')">Distancia</th>
+        <th>Salida</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <!--
+        ng-repeat + filter:busqueda → filtra en tiempo real
+        orderBy:ordenarPor:orden    → ordena por columna seleccionada
+      -->
+      <tr ng-repeat="run in runs | filter:busqueda | orderBy:ordenarPor:orden"
+          ng-class="{ 'fila-nuevo': $index === 0 }">
+
+        <td>{{ run.created_at | date:'dd/MM/yy HH:mm':'America/Bogota' }}</td>
+        <td><strong>{{ run.vehicle_name }}</strong></td>
+        <td class="accent-orange"><strong>{{ run.top_speed | kmh }}</strong></td>
+        <td>{{ run.zero_to_60  | sprint }}</td>
+        <td>{{ run.zero_to_100 | sprint }}</td>
+        <td>{{ run.quarter_mile | sprint }}</td>
+        <td>{{ run.trap_speed_quarter | kmh }}</td>
+        <td>{{ run.total_distance | distancia }}</td>
+        <td>
+          <span class="badge" ng-class="badgeClase(run.launch_quality)">
+            {{ run.launch_quality || '—' }}
+          </span>
+        </td>
+        <td>
+          <button class="btn-eliminar" ng-click="eliminar(run)">✕</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Sin datos -->
+  <div class="estado-vacio" ng-if="!cargando && !error && runs.length === 0">
+    No hay runs registrados aún.
+  </div>
+
+</div>

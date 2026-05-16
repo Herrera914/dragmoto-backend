@@ -1,0 +1,113 @@
+<!--
+  ── VISTA: dashboard.html ────────────────────────────────────────
+  DEMOSTRACIÓN DEL FRAMEWORK — VISTA Y BINDING:
+  - {{ expresion }}   → muestra el valor del $scope en tiempo real
+  - ng-class          → aplica clases CSS condicionalmente
+  - ng-style          → aplica estilos calculados por el controlador
+  - ng-if             → renderiza elementos condicionalmente
+  - canvas-chart      → directiva que inicializa Chart.js
+  ────────────────────────────────────────────────────────────────
+-->
+
+<div class="dashboard-grid">
+
+  <!-- ── Columna izquierda: velocímetro ── -->
+  <div class="panel panel-speed">
+    <div class="panel-label">VELOCIDAD EN VIVO</div>
+
+    <!-- Directiva personalizada: encapsula el arco SVG -->
+    <velocimetro velocidad="velocidad" maximo="maxVelocidad"></velocimetro>
+
+    <!-- Estado de conexión: two-way binding con $scope.conectado -->
+    <div class="estado-badge" ng-class="{ 'estado-live': enVivo, 'estado-idle': !enVivo }">
+      <span class="estado-dot"></span>
+      <span>{{ estadoMensaje }}</span>
+    </div>
+  </div>
+
+  <!-- ── Columna central: métricas ── -->
+  <div class="panel panel-metrics">
+
+    <!-- Aceleración -->
+    <div class="metric-block">
+      <div class="metric-label">ACELERACIÓN</div>
+      <!-- ng-class cambia el color del número según el valor -->
+      <div class="metric-value accent-blue"
+           ng-class="{ 'accent-orange': aceleracion > 5 }">
+        {{ aceleracion | number:2 }}
+        <span class="metric-unit">m/s²</span>
+      </div>
+      <!-- Barra de progreso: ng-style calcula el ancho dinámicamente -->
+      <div class="barra-bg">
+        <div class="barra-fill" ng-style="{ width: barraAceleracion() + '%' }"></div>
+      </div>
+      <div class="metric-sub">Pico: {{ maxAceler | number:2 }} m/s²</div>
+    </div>
+
+    <!-- Distancia -->
+    <div class="metric-block">
+      <div class="metric-label">DISTANCIA</div>
+      <div class="metric-value accent-green">
+        {{ distancia | number:1 }}
+        <span class="metric-unit">m</span>
+      </div>
+      <!-- Hito 100m: ng-if solo lo muestra cuando se supera -->
+      <div class="hito" ng-class="{ 'hito-done': distancia >= 100 }">
+        100 m {{ distancia >= 100 ? '✓' : '...' }}
+      </div>
+      <div class="hito" ng-class="{ 'hito-done': distancia >= 402 }">
+        ¼ milla {{ distancia >= 402 ? '✓' : '...' }}
+      </div>
+    </div>
+
+    <!-- Trap speed -->
+    <div class="metric-block">
+      <div class="metric-label">TRAP SPEED ¼ MILLA</div>
+      <div class="metric-value accent-orange">
+        <!-- ng-if muestra uno u otro según si el dato existe -->
+        <span ng-if="trapSpeed">{{ trapSpeed | number:1 }} <span class="metric-unit">km/h</span></span>
+        <span ng-if="!trapSpeed" class="muted">—</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Columna derecha: tiempos de sprint ── -->
+  <div class="panel panel-sprints">
+    <div class="panel-label">TIEMPOS DE SPRINT</div>
+
+    <!-- ng-class marca la tarjeta como completada cuando el dato llegó -->
+    <div class="sprint-item" ng-class="{ 'sprint-done': sprints.zero30 }">
+      <span class="sprint-lbl">0 → 30 km/h</span>
+      <span class="sprint-val">{{ sprints.zero30 | sprint }}</span>
+    </div>
+    <div class="sprint-item" ng-class="{ 'sprint-done': sprints.zero60 }">
+      <span class="sprint-lbl">0 → 60 km/h</span>
+      <span class="sprint-val">{{ sprints.zero60 | sprint }}</span>
+    </div>
+    <div class="sprint-item" ng-class="{ 'sprint-done': sprints.zero80 }">
+      <span class="sprint-lbl">0 → 80 km/h</span>
+      <span class="sprint-val">{{ sprints.zero80 | sprint }}</span>
+    </div>
+    <div class="sprint-item" ng-class="{ 'sprint-done': sprints.zero100 }">
+      <span class="sprint-lbl">0 → 100 km/h</span>
+      <span class="sprint-val">{{ sprints.zero100 | sprint }}</span>
+    </div>
+    <div class="sprint-item" ng-class="{ 'sprint-done': sprints.zero120 }">
+      <span class="sprint-lbl">0 → 120 km/h</span>
+      <span class="sprint-val">{{ sprints.zero120 | sprint }}</span>
+    </div>
+    <div class="sprint-item" ng-class="{ 'sprint-done': sprints.quarterMile }">
+      <span class="sprint-lbl">¼ milla (402 m)</span>
+      <span class="sprint-val">{{ sprints.quarterMile | sprint }}</span>
+    </div>
+  </div>
+
+  <!-- ── Fila inferior: gráfica de velocidad ── -->
+  <div class="panel panel-chart">
+    <div class="panel-label">CURVA DE VELOCIDAD — ÚLTIMOS 40 PUNTOS</div>
+    <!-- canvas-chart es una directiva que inicializa Chart.js -->
+    <canvas id="speedChart" canvas-chart></canvas>
+  </div>
+
+</div>

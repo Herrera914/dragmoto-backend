@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<!--
+  ── index.html ───────────────────────────────────────────────────
+  DEMOSTRACIÓN DEL FRAMEWORK — INSTALACIÓN Y ESTRUCTURA:
+
+  ng-app="telemetriaApp" → activa AngularJS en este documento.
+  ng-view               → donde se inyectan las vistas según la ruta.
+
+  Dependencias externas (CDN):
+  - AngularJS 1.8.3     → el framework
+  - angular-route 1.8.3 → módulo de enrutamiento
+  - Socket.io 4.7.5     → tiempo real
+  - Chart.js 4.4.1      → gráfica de velocidad
+  ────────────────────────────────────────────────────────────────
+-->
+<html ng-app="telemetriaApp" lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DragMoto — Telemetría en Vivo</title>
+
+  <!-- Google Fonts: Bebas Neue (display) + Space Mono (datos numéricos) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  <!-- Estilos propios -->
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+
+<!-- ── Header con navegación Angular ──────────────────────────── -->
+<header class="app-header">
+  <div class="brand">
+    <span class="brand-icon">⚡</span>
+    <span class="brand-name">DRAGMOTO</span>
+    <span class="brand-sub">TELEMETRÍA</span>
+  </div>
+
+  <!-- Navegación: href="#/" usa el enrutador de AngularJS -->
+  <nav class="app-nav">
+    <a href="#/"          class="nav-link" ng-class="{ active: ruta === '/' }">
+      EN VIVO
+    </a>
+    <a href="#/historial" class="nav-link" ng-class="{ active: ruta === '/historial' }">
+      HISTORIAL
+    </a>
+  </nav>
+</header>
+
+<!-- ── ng-view: AngularJS inyecta aquí la vista de la ruta activa ── -->
+<main class="app-main">
+  <div ng-view></div>
+</main>
+
+<!-- ────────────────────────────────────────────────────────────── -->
+<!-- INSTALACIÓN — Dependencias en orden obligatorio               -->
+<!-- ────────────────────────────────────────────────────────────── -->
+
+<!-- 1. AngularJS core -->
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
+<!-- 2. Módulo de rutas de AngularJS -->
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-route.min.js"></script>
+<!-- 3. Socket.io (tiempo real) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<!-- 4. Chart.js (gráfica) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<!-- ────────────────────────────────────────────────────────────── -->
+<!-- ESTRUCTURA — Archivos propios en orden de dependencia         -->
+<!-- ────────────────────────────────────────────────────────────── -->
+
+<!-- Módulo principal (debe ir primero) -->
+<script src="app.js"></script>
+
+<!-- Servicios (no dependen de controladores) -->
+<script src="services/socket.service.js"></script>
+<script src="services/run.service.js"></script>
+
+<!-- Directivas -->
+<script src="controllers/velocimetro.directive.js"></script>
+
+<!-- Controladores (dependen de los servicios) -->
+<script src="controllers/dashboard.controller.js"></script>
+<script src="controllers/historial.controller.js"></script>
+
+<!-- Directiva canvas-chart: inicializa Chart.js en la vista -->
+<script>
+angular.module('telemetriaApp')
+.directive('canvasChart', function() {
+    return {
+        restrict: 'A',
+        require : '^^dashboardCtrl',
+        link    : function(scope, element, attrs, ctrl) {
+            // Espera a que el DOM esté listo para inicializar la gráfica
+            scope.$evalAsync(function() {
+                var canvas = document.getElementById('speedChart');
+                if (canvas && scope.initChart) scope.initChart(canvas);
+            });
+        }
+    };
+})
+
+// Controlador de navegación en el header
+.controller('NavCtrl', function($scope, $location) {
+    $scope.$watch(function() {
+        return $location.path();
+    }, function(path) {
+        $scope.ruta = path;
+    });
+});
+</script>
+
+</body>
+</html>
