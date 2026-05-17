@@ -1,114 +1,499 @@
 <!DOCTYPE html>
 <!--
-  ── index.html ───────────────────────────────────────────────────
-  DEMOSTRACIÓN DEL FRAMEWORK — INSTALACIÓN Y ESTRUCTURA:
-
-  ng-app="telemetriaApp" → activa AngularJS en este documento.
-  ng-view               → donde se inyectan las vistas según la ruta.
-
-  Dependencias externas (CDN):
-  - AngularJS 1.8.3     → el framework
-  - angular-route 1.8.3 → módulo de enrutamiento
-  - Socket.io 4.7.5     → tiempo real
-  - Chart.js 4.4.1      → gráfica de velocidad
-  ────────────────────────────────────────────────────────────────
+  DragMoto Telemetría — Dashboard AngularJS
+  ─────────────────────────────────────────
+  Módulo:        telemetriaApp (ng-app)
+  Controladores: AppCtrl (live), HistorialCtrl
+  Servicios:     SocketService, RunService ($http)
+  Directivas:    <velocimetro>
 -->
 <html ng-app="telemetriaApp" lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DragMoto — Telemetría en Vivo</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DragMoto — Telemetría</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #060608;
+  --s1:      #0c0c10;
+  --s2:      #111116;
+  --border:  #1a1a24;
+  --border2: #252535;
+  --orange:  #ff6b00;
+  --orange2: #ff9500;
+  --blue:    #00b4ff;
+  --green:   #00e676;
+  --red:     #ff1744;
+  --yellow:  #ffd600;
+  --text:    #e8eaf0;
+  --muted:   #454560;
+  --muted2:  #6b6b8a;
+  --orb: 'Orbitron', monospace;
+  --raj: 'Rajdhani', sans-serif;
+  --mon: 'Share Tech Mono', monospace;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{height:100%}
+body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--raj);overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 4px);pointer-events:none;z-index:9999}
+body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(255,107,0,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,107,0,0.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
 
-  <!-- Google Fonts: Bebas Neue (display) + Space Mono (datos numéricos) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+/* Header */
+.hdr{position:sticky;top:0;z-index:500;display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:58px;background:rgba(6,6,8,0.96);border-bottom:1px solid var(--border);backdrop-filter:blur(16px)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-box{width:34px;height:34px;border:2px solid var(--orange);display:grid;place-items:center;font-family:var(--orb);font-size:0.6rem;font-weight:900;color:var(--orange);clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);background:rgba(255,107,0,0.07);letter-spacing:0.02em}
+.logo-name{font-family:var(--orb);font-size:1rem;font-weight:900;letter-spacing:0.18em;color:var(--text)}
+.logo-name span{color:var(--orange)}
+.nav{display:flex;gap:3px;background:var(--s1);border:1px solid var(--border);border-radius:4px;padding:3px}
+.ntab{padding:6px 18px;font-family:var(--orb);font-size:0.55rem;font-weight:700;letter-spacing:0.12em;color:var(--muted2);cursor:pointer;border-radius:3px;transition:all 0.2s;border:none;background:transparent}
+.ntab:hover{color:var(--text)}
+.ntab.on{background:var(--orange);color:#000}
+.hdr-st{display:flex;align-items:center;gap:8px;font-family:var(--mon);font-size:0.65rem;color:var(--muted2)}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--muted);transition:all 0.3s}
+.sdot.live{background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 1.4s ease-in-out infinite}
+@keyframes blink{50%{opacity:0.25}}
 
-  <!-- Estilos propios -->
-  <link rel="stylesheet" href="styles/main.css">
+/* Layout */
+.body{position:relative;z-index:1;padding:20px 24px}
+
+/* Panel */
+.panel{background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:18px;position:relative;overflow:hidden}
+.panel::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--orange),transparent);opacity:0.3}
+.plbl{font-family:var(--orb);font-size:0.5rem;font-weight:700;letter-spacing:0.2em;color:var(--muted);margin-bottom:14px}
+
+/* Dashboard grid */
+.dgrid{display:grid;grid-template-columns:280px 1fr 220px;grid-template-rows:auto auto;gap:14px}
+
+/* Velocímetro */
+.pvel{grid-column:1;grid-row:1/3;display:flex;flex-direction:column;align-items:center;gap:16px}
+.vring{position:relative;width:200px;height:200px}
+.vsvg{width:100%;height:100%;transform:rotate(-135deg)}
+.vtrack{fill:none;stroke:var(--border2);stroke-width:14;stroke-linecap:round}
+.varc{fill:none;stroke-width:14;stroke-linecap:round;stroke-dasharray:471;stroke-dashoffset:471;transition:stroke-dashoffset 0.3s ease,stroke 0.3s;filter:drop-shadow(0 0 8px currentColor)}
+.vcenter{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.vnum{font-family:var(--orb);font-size:3.4rem;font-weight:900;line-height:1;color:var(--orange);text-shadow:0 0 28px rgba(255,107,0,0.5);transition:color 0.3s;font-variant-numeric:tabular-nums}
+.vunit{font-family:var(--mon);font-size:0.7rem;color:var(--muted2);letter-spacing:0.1em;margin-top:3px}
+.vmax{font-family:var(--mon);font-size:0.65rem;color:var(--muted2);text-align:center}
+.vmax b{color:var(--orange2)}
+.vminis{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mcard{background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:10px;text-align:center}
+.mlbl{font-family:var(--orb);font-size:0.42rem;font-weight:700;letter-spacing:0.14em;color:var(--muted);margin-bottom:4px}
+.mval{font-family:var(--orb);font-size:1rem;font-weight:900;color:var(--text)}
+
+/* Métricas */
+.pmets{grid-column:2;grid-row:1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-content:start}
+.mc{background:var(--s2);border:1px solid var(--border);border-radius:6px;padding:16px;position:relative}
+.mc::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;border-radius:0 0 6px 6px;opacity:0;transition:opacity 0.3s}
+.mc.on::after{opacity:1}
+.mc-o::after{background:var(--orange)}
+.mc-b::after{background:var(--blue)}
+.mc-g::after{background:var(--green)}
+.mclbl{font-family:var(--orb);font-size:0.47rem;font-weight:700;letter-spacing:0.18em;color:var(--muted);margin-bottom:10px}
+.mcv{font-family:var(--orb);font-size:2rem;font-weight:900;line-height:1;transition:color 0.3s;font-variant-numeric:tabular-nums}
+.co{color:var(--orange);text-shadow:0 0 16px rgba(255,107,0,0.4)}
+.cb{color:var(--blue);text-shadow:0 0 16px rgba(0,180,255,0.4)}
+.cg{color:var(--green);text-shadow:0 0 16px rgba(0,230,118,0.4)}
+.mcu{font-family:var(--mon);font-size:0.6rem;color:var(--muted2);margin-top:3px}
+.mcs{font-family:var(--mon);font-size:0.58rem;color:var(--muted2);margin-top:7px}
+.abg{width:100%;height:4px;background:var(--border2);border-radius:2px;margin-top:8px;overflow:hidden}
+.afl{height:100%;background:linear-gradient(90deg,var(--blue),var(--orange));border-radius:2px;transition:width 0.3s ease;box-shadow:0 0 6px var(--blue)}
+.hitos{display:flex;flex-direction:column;gap:5px;margin-top:8px}
+.hito{display:flex;align-items:center;justify-content:space-between;padding:4px 8px;border:1px solid var(--border);border-radius:3px;font-family:var(--mon);font-size:0.58rem;color:var(--muted);transition:all 0.3s}
+.hito.done{border-color:var(--green);color:var(--green);background:rgba(0,230,118,0.05)}
+
+/* Sprints */
+.pspr{grid-column:3;grid-row:1/3;display:flex;flex-direction:column;gap:7px}
+.srow{display:flex;align-items:center;justify-content:space-between;padding:9px 11px;background:var(--s2);border:1px solid var(--border);border-radius:4px;transition:all 0.3s;position:relative;overflow:hidden}
+.srow::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--muted);transition:background 0.3s}
+.srow.done{border-color:rgba(255,107,0,0.3);background:rgba(255,107,0,0.04)}
+.srow.done::before{background:var(--orange)}
+.slbl{font-family:var(--raj);font-size:0.72rem;font-weight:600;color:var(--muted2);letter-spacing:0.04em}
+.srow.done .slbl{color:var(--text)}
+.sval{font-family:var(--orb);font-size:0.8rem;font-weight:700;color:var(--muted)}
+.srow.done .sval{color:var(--orange)}
+
+/* Gráfica */
+.pchart{grid-column:2;grid-row:2}
+#speedChart{max-height:130px}
+
+/* Historial */
+.hwrap{display:flex;flex-direction:column;gap:18px}
+.sband{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.spill{background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:16px;position:relative;overflow:hidden}
+.spill::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.spo::before{background:var(--orange)}
+.spb::before{background:var(--blue)}
+.spg::before{background:var(--green)}
+.spy::before{background:var(--yellow)}
+.splbl{font-family:var(--orb);font-size:0.48rem;font-weight:700;letter-spacing:0.18em;color:var(--muted);margin-bottom:8px}
+.spval{font-family:var(--orb);font-size:1.7rem;font-weight:900;color:var(--text)}
+.spo .spval{color:var(--orange)}
+.spb .spval{color:var(--blue)}
+.spg .spval{color:var(--green)}
+.spy .spval{color:var(--yellow)}
+.hctrl{display:flex;gap:10px;align-items:center}
+.sinput{flex:1;background:var(--s1);border:1px solid var(--border2);border-radius:4px;padding:10px 14px;color:var(--text);font-family:var(--mon);font-size:0.78rem;outline:none;transition:border-color 0.2s}
+.sinput::placeholder{color:var(--muted)}
+.sinput:focus{border-color:var(--orange)}
+.btn{padding:10px 18px;border-radius:4px;font-family:var(--orb);font-size:0.55rem;font-weight:700;letter-spacing:0.1em;cursor:pointer;border:none;transition:all 0.2s}
+.btng{background:transparent;border:1px solid var(--border2);color:var(--muted2)}
+.btng:hover{border-color:var(--orange);color:var(--orange)}
+.twrap{background:var(--s1);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead tr{background:var(--s2);border-bottom:1px solid var(--border2)}
+th{padding:11px 14px;font-family:var(--orb);font-size:0.48rem;font-weight:700;letter-spacing:0.14em;color:var(--muted);text-align:left;cursor:pointer;user-select:none;white-space:nowrap}
+th:hover{color:var(--orange)}
+td{padding:12px 14px;font-family:var(--mon);font-size:0.72rem;border-bottom:1px solid var(--border);color:var(--text)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:rgba(255,107,0,0.025)}
+.tdtop{font-family:var(--orb);font-size:0.82rem;font-weight:700;color:var(--orange)}
+.tdveh{font-weight:700;font-family:var(--raj);font-size:0.88rem}
+.badge{display:inline-block;padding:3px 9px;border-radius:2px;font-family:var(--orb);font-size:0.48rem;font-weight:700;letter-spacing:0.08em}
+.bg{background:rgba(0,230,118,0.1);color:var(--green);border:1px solid rgba(0,230,118,0.3)}
+.bo{background:rgba(255,107,0,0.1);color:var(--orange);border:1px solid rgba(255,107,0,0.3)}
+.br{background:rgba(255,23,68,0.1);color:var(--red);border:1px solid rgba(255,23,68,0.3)}
+.bm{background:var(--s2);color:var(--muted2);border:1px solid var(--border)}
+.bdel{background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 9px;font-family:var(--orb);font-size:0.5rem;cursor:pointer;transition:all 0.2s}
+.bdel:hover{border-color:var(--red);color:var(--red)}
+.empty{padding:56px;text-align:center;font-family:var(--mon);font-size:0.78rem;color:var(--muted)}
+.err{padding:40px;text-align:center;font-family:var(--mon);font-size:0.78rem;color:var(--red)}
+.spwrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:56px}
+.spinner{width:32px;height:32px;border:3px solid var(--border2);border-top-color:var(--orange);border-radius:50%;animation:spin 0.7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.fin{animation:fadeIn 0.35s ease both}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media(max-width:1100px){
+  .dgrid{grid-template-columns:1fr 1fr}
+  .pvel{grid-column:1/3}
+  .pspr{grid-column:1/3;grid-row:auto;display:grid;grid-template-columns:repeat(2,1fr)}
+  .pchart{grid-column:1/3}
+  .sband{grid-template-columns:repeat(2,1fr)}
+}
+</style>
 </head>
-<body>
 
-<!-- ── Header con navegación Angular ──────────────────────────── -->
-<header class="app-header">
-  <div class="brand">
-    <span class="brand-icon">⚡</span>
-    <span class="brand-name">DRAGMOTO</span>
-    <span class="brand-sub">TELEMETRÍA</span>
+<body ng-controller="AppCtrl">
+
+<header class="hdr">
+  <div class="logo">
+    <div class="logo-box">DM</div>
+    <div class="logo-name">DRAG<span>MOTO</span></div>
   </div>
-
-  <!-- Navegación: href="#/" usa el enrutador de AngularJS -->
-  <nav class="app-nav">
-    <a href="#/"          class="nav-link" ng-class="{ active: ruta === '/' }">
-      EN VIVO
-    </a>
-    <a href="#/historial" class="nav-link" ng-class="{ active: ruta === '/historial' }">
-      HISTORIAL
-    </a>
-  </nav>
+  <div class="nav">
+    <button class="ntab" ng-class="{ on: tab==='live' }"      ng-click="tab='live'">EN VIVO</button>
+    <button class="ntab" ng-class="{ on: tab==='historial' }" ng-click="tab='historial'">HISTORIAL</button>
+  </div>
+  <div class="hdr-st">
+    <div class="sdot" ng-class="{ live: enVivo }"></div>
+    <span>{{ stMsg }}</span>
+  </div>
 </header>
 
-<!-- ── ng-view: AngularJS inyecta aquí la vista de la ruta activa ── -->
-<main class="app-main">
-  <div ng-view></div>
-</main>
+<!-- ══ EN VIVO ════════════════════════════════════════════════ -->
+<div class="body fin" ng-show="tab==='live'">
+  <div class="dgrid">
 
-<!-- ────────────────────────────────────────────────────────────── -->
-<!-- INSTALACIÓN — Dependencias en orden obligatorio               -->
-<!-- ────────────────────────────────────────────────────────────── -->
+    <div class="panel pvel">
+      <div class="plbl">VELOCIDAD</div>
+      <velocimetro vel="vel" maxv="maxVel"></velocimetro>
+      <div class="vmax">MÁX <b>{{ maxVel | number:1 }}</b> km/h</div>
+      <div class="vminis">
+        <div class="mcard">
+          <div class="mlbl">TRAP ¼ MI</div>
+          <div class="mval" style="color:var(--orange2)">
+            <span ng-if="trap">{{ trap | number:1 }}</span>
+            <span ng-if="!trap" style="color:var(--muted)">—</span>
+          </div>
+        </div>
+        <div class="mcard">
+          <div class="mlbl">DISTANCIA</div>
+          <div class="mval" style="color:var(--blue)">{{ dist | number:0 }}<span style="font-size:0.55rem;color:var(--muted2)"> m</span></div>
+        </div>
+      </div>
+    </div>
 
-<!-- 1. AngularJS core -->
+    <div class="pmets">
+      <div class="mc mc-b" ng-class="{ on: accel>0 }">
+        <div class="mclbl">ACELERACIÓN</div>
+        <div class="mcv cb">{{ accel | number:2 }}</div>
+        <div class="mcu">m/s²</div>
+        <div class="abg"><div class="afl" ng-style="{ width: pctAccel()+'%' }"></div></div>
+        <div class="mcs">PICO: {{ maxAccel | number:2 }} m/s²</div>
+      </div>
+
+      <div class="mc mc-g" ng-class="{ on: dist>0 }">
+        <div class="mclbl">RECORRIDO</div>
+        <div class="mcv cg">{{ dist | number:0 }}</div>
+        <div class="mcu">metros</div>
+        <div class="hitos">
+          <div class="hito" ng-class="{ done: dist>=100  }"><span>100 m</span>      <span>{{ dist>=100  ? '✓':'○' }}</span></div>
+          <div class="hito" ng-class="{ done: dist>=201  }"><span>⅛ milla</span>    <span>{{ dist>=201  ? '✓':'○' }}</span></div>
+          <div class="hito" ng-class="{ done: dist>=402  }"><span>¼ milla</span>    <span>{{ dist>=402  ? '✓':'○' }}</span></div>
+        </div>
+      </div>
+
+      <div class="mc mc-o" ng-class="{ on: ultimoRun }">
+        <div class="mclbl">ÚLTIMO RUN</div>
+        <div ng-if="ultimoRun">
+          <div class="mcv co">{{ ultimoRun.top_speed | number:1 }}</div>
+          <div class="mcu">km/h top</div>
+          <div class="mcs">{{ ultimoRun.vehicle_name }}</div>
+          <div class="mcs" style="margin-top:4px">0→100: {{ ultimoRun.zero_to_100 ? (ultimoRun.zero_to_100|number:2)+'s' : '—' }}</div>
+        </div>
+        <div ng-if="!ultimoRun" style="color:var(--muted);font-family:var(--mon);font-size:0.68rem;margin-top:10px">Esperando primer run...</div>
+      </div>
+    </div>
+
+    <div class="panel pspr">
+      <div class="plbl">TIEMPOS DE SPRINT</div>
+      <div class="srow" ng-class="{ done: sp.z30  }"><span class="slbl">0 → 30 km/h</span>  <span class="sval">{{ sp.z30  ? (sp.z30  |number:2)+'s':'—' }}</span></div>
+      <div class="srow" ng-class="{ done: sp.z60  }"><span class="slbl">0 → 60 km/h</span>  <span class="sval">{{ sp.z60  ? (sp.z60  |number:2)+'s':'—' }}</span></div>
+      <div class="srow" ng-class="{ done: sp.z80  }"><span class="slbl">0 → 80 km/h</span>  <span class="sval">{{ sp.z80  ? (sp.z80  |number:2)+'s':'—' }}</span></div>
+      <div class="srow" ng-class="{ done: sp.z100 }"><span class="slbl">0 → 100 km/h</span> <span class="sval">{{ sp.z100 ? (sp.z100 |number:2)+'s':'—' }}</span></div>
+      <div class="srow" ng-class="{ done: sp.z120 }"><span class="slbl">0 → 120 km/h</span> <span class="sval">{{ sp.z120 ? (sp.z120 |number:2)+'s':'—' }}</span></div>
+      <div class="srow" ng-class="{ done: sp.em  }"><span class="slbl">⅛ milla (201m)</span><span class="sval">{{ sp.em  ? (sp.em  |number:2)+'s':'—' }}</span></div>
+      <div class="srow" ng-class="{ done: sp.qm  }"><span class="slbl">¼ milla (402m)</span><span class="sval">{{ sp.qm  ? (sp.qm  |number:2)+'s':'—' }}</span></div>
+    </div>
+
+    <div class="panel pchart">
+      <div class="plbl">CURVA DE VELOCIDAD — ÚLTIMOS 40 PUNTOS</div>
+      <canvas id="speedChart"></canvas>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ HISTORIAL ═════════════════════════════════════════════ -->
+<div class="body fin" ng-show="tab==='historial'" ng-controller="HistCtrl">
+  <div class="hwrap">
+
+    <div class="sband" ng-if="stats">
+      <div class="spill spo"><div class="splbl">TOTAL RUNS</div>    <div class="spval">{{ stats.totalRuns||0 }}</div></div>
+      <div class="spill spb"><div class="splbl">MEJOR TOP SPEED</div><div class="spval">{{ stats.bestTopSpeed ? (stats.bestTopSpeed|number:1)+' km/h':'—' }}</div></div>
+      <div class="spill spg"><div class="splbl">MEJOR 0→100</div>   <div class="spval">{{ stats.bestZeroTo100  ? (stats.bestZeroTo100 |number:2)+'s':'—' }}</div></div>
+      <div class="spill spy"><div class="splbl">MEJOR ¼ MILLA</div> <div class="spval">{{ stats.bestQuarterMile? (stats.bestQuarterMile|number:2)+'s':'—' }}</div></div>
+    </div>
+
+    <div class="hctrl">
+      <input class="sinput" type="text" ng-model="q" placeholder="🔍  Buscar por vehículo...">
+      <button class="btn btng" ng-click="load()">↺ RECARGAR</button>
+    </div>
+
+    <div class="spwrap" ng-if="loading">
+      <div class="spinner"></div>
+      <span style="font-family:var(--mon);font-size:0.72rem;color:var(--muted)">Cargando historial...</span>
+    </div>
+
+    <div class="err" ng-if="err && !loading">⚠ {{ err }}</div>
+
+    <div class="twrap" ng-if="!loading && !err && runs.length">
+      <table>
+        <thead>
+          <tr>
+            <th ng-click="o('created_at')">FECHA</th>
+            <th ng-click="o('vehicle_name')">VEHÍCULO</th>
+            <th ng-click="o('top_speed')">TOP SPEED</th>
+            <th ng-click="o('zero_to_60')">0→60</th>
+            <th ng-click="o('zero_to_100')">0→100</th>
+            <th ng-click="o('quarter_mile')">¼ MILLA</th>
+            <th ng-click="o('trap_speed_quarter')">TRAP</th>
+            <th ng-click="o('total_distance')">DISTANCIA</th>
+            <th>SALIDA</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr ng-repeat="r in runs | filter:q | orderBy:col:desc">
+            <td style="color:var(--muted2)">{{ r.created_at | date:'dd/MM/yy HH:mm' }}</td>
+            <td class="tdveh">{{ r.vehicle_name||'—' }}</td>
+            <td class="tdtop">{{ r.top_speed|number:1 }} km/h</td>
+            <td>{{ r.zero_to_60   ? (r.zero_to_60  |number:2)+'s':'—' }}</td>
+            <td>{{ r.zero_to_100  ? (r.zero_to_100 |number:2)+'s':'—' }}</td>
+            <td>{{ r.quarter_mile ? (r.quarter_mile|number:2)+'s':'—' }}</td>
+            <td>{{ r.trap_speed_quarter ? (r.trap_speed_quarter|number:1)+' km/h':'—' }}</td>
+            <td>{{ (r.total_distance/1000)|number:2 }} km</td>
+            <td>
+              <span class="badge" ng-class="{
+                bg: r.launch_quality==='EXCELENTE'||r.launch_quality==='BUENA',
+                bo: r.launch_quality==='REGULAR',
+                br: r.launch_quality==='POBRE',
+                bm: !r.launch_quality }">{{ r.launch_quality||'—' }}</span>
+            </td>
+            <td><button class="bdel" ng-click="del(r)">DEL</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="empty" ng-if="!loading && !err && runs.length===0">
+      No hay runs registrados aún.
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Scripts ── -->
 <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
-<!-- 2. Módulo de rutas de AngularJS -->
-<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular-route.min.js"></script>
-<!-- 3. Socket.io (tiempo real) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
-<!-- 4. Chart.js (gráfica) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-
-<!-- ────────────────────────────────────────────────────────────── -->
-<!-- ESTRUCTURA — Archivos propios en orden de dependencia         -->
-<!-- ────────────────────────────────────────────────────────────── -->
-
-<!-- Módulo principal (debe ir primero) -->
-<script src="app.js"></script>
-
-<!-- Servicios (no dependen de controladores) -->
-<script src="services/socket.service.js"></script>
-<script src="services/run.service.js"></script>
-
-<!-- Directivas -->
-<script src="controllers/velocimetro.directive.js"></script>
-
-<!-- Controladores (dependen de los servicios) -->
-<script src="controllers/dashboard.controller.js"></script>
-<script src="controllers/historial.controller.js"></script>
-
-<!-- Directiva canvas-chart: inicializa Chart.js en la vista -->
 <script>
-angular.module('telemetriaApp')
-.directive('canvasChart', function() {
-    return {
-        restrict: 'A',
-        require : '^^dashboardCtrl',
-        link    : function(scope, element, attrs, ctrl) {
-            // Espera a que el DOM esté listo para inicializar la gráfica
-            scope.$evalAsync(function() {
-                var canvas = document.getElementById('speedChart');
-                if (canvas && scope.initChart) scope.initChart(canvas);
-            });
-        }
-    };
-})
+var app = angular.module('telemetriaApp', []);
 
-// Controlador de navegación en el header
-.controller('NavCtrl', function($scope, $location) {
-    $scope.$watch(function() {
-        return $location.path();
-    }, function(path) {
-        $scope.ruta = path;
+// ── Servicio Socket ───────────────────────────────────────────
+app.service('Sock', function($rootScope) {
+  var s = io();
+  this.on = function(ev, cb) {
+    s.on(ev, function(d) { $rootScope.$apply(function() { cb(d); }); });
+  };
+});
+
+// ── Servicio API ($http) ──────────────────────────────────────
+app.service('Api', function($http) {
+  this.runs  = function() { return $http.get('/api/runs').then(function(r){return r.data;}); };
+  this.stats = function() { return $http.get('/api/runs/stats').then(function(r){return r.data;}); };
+  this.del   = function(id) { return $http.delete('/api/runs/'+id); };
+});
+
+// ── Directiva <velocimetro> ───────────────────────────────────
+app.directive('velocimetro', function() {
+  return {
+    restrict: 'E',
+    scope: { vel:'=', maxv:'=' },
+    template:
+      '<div class="vring">' +
+        '<svg class="vsvg" viewBox="0 0 120 120">' +
+          '<circle class="vtrack" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="78"/>' +
+          '<circle class="varc" cx="60" cy="60" r="50" ng-style="{stroke:col(),\'stroke-dashoffset\':off()}" stroke-dasharray="314"/>' +
+        '</svg>' +
+        '<div class="vcenter">' +
+          '<div class="vnum" ng-style="{color:col()}">{{ vel|number:1 }}</div>' +
+          '<div class="vunit">km/h</div>' +
+        '</div>' +
+      '</div>',
+    controller: function($scope) {
+      var ARC = 236;
+      $scope.off = function() {
+        return 314 - (ARC * Math.min($scope.vel||0, 200) / 200) + 78;
+      };
+      $scope.col = function() {
+        var v = $scope.vel||0;
+        return v < 60 ? '#00e676' : v < 100 ? '#ff9500' : '#ff1744';
+      };
+    }
+  };
+});
+
+// ── Controlador principal (Live) ──────────────────────────────
+app.controller('AppCtrl', function($scope, $interval, Sock, Api) {
+  $scope.tab     = 'live';
+  $scope.vel     = 0; $scope.maxVel = 0;
+  $scope.accel   = 0; $scope.maxAccel = 0;
+  $scope.dist    = 0; $scope.trap = null;
+  $scope.enVivo  = false; $scope.ultimoRun = null;
+  $scope.stMsg   = 'Esperando conexión...';
+  $scope.sp      = { z30:null,z60:null,z80:null,z100:null,z120:null,qm:null,em:null };
+
+  var cdata = [], chart = null;
+
+  setTimeout(function() {
+    var el = document.getElementById('speedChart');
+    if (!el) return;
+    chart = new Chart(el, {
+      type: 'line',
+      data: { labels:[], datasets:[{
+        data:[], borderColor:'#ff6b00', backgroundColor:'rgba(255,107,0,0.06)',
+        borderWidth:2, pointRadius:0, tension:0.4, fill:true
+      }]},
+      options: {
+        responsive:true, animation:false,
+        plugins:{ legend:{ display:false } },
+        scales:{
+          x:{ display:false },
+          y:{ min:0, grid:{ color:'rgba(255,255,255,0.03)' },
+              ticks:{ color:'#454560', font:{ size:10, family:'Share Tech Mono' } } }
+        }
+      }
     });
+  }, 150);
+
+  Sock.on('live_point', function(d) {
+    $scope.enVivo = true;
+    $scope.vel    = parseFloat(d.speed_kmh)    || 0;
+    $scope.accel  = parseFloat(d.acceleration) || 0;
+    $scope.dist   = parseFloat(d.distance)     || 0;
+    if ($scope.vel   > $scope.maxVel)   $scope.maxVel   = $scope.vel;
+    if ($scope.accel > $scope.maxAccel) $scope.maxAccel = $scope.accel;
+    $scope.stMsg = '🟢 EN VIVO — ' + new Date().toLocaleTimeString('es-CO');
+    cdata.push($scope.vel);
+    if (cdata.length > 40) cdata.shift();
+    if (chart) {
+      chart.data.labels = cdata.map(function(_,i){return i;});
+      chart.data.datasets[0].data = cdata;
+      chart.update();
+    }
+  });
+
+  Sock.on('run_completed', function(r) {
+    $scope.enVivo    = false;
+    $scope.ultimoRun = r;
+    $scope.stMsg     = '✅ RUN COMPLETADO — ' + r.vehicle_name;
+    $scope.trap      = r.trap_speed_quarter;
+    $scope.sp = { z30:r.zero_to_30, z60:r.zero_to_60, z80:r.zero_to_80,
+                  z100:r.zero_to_100, z120:r.zero_to_120, qm:r.quarter_mile, em:r.eighth_mile };
+
+    $interval(function() {
+      $scope.vel=0; $scope.accel=0; $scope.dist=0;
+      $scope.maxVel=0; $scope.maxAccel=0; $scope.trap=null;
+      $scope.sp={ z30:null,z60:null,z80:null,z100:null,z120:null,qm:null,em:null };
+      cdata=[];
+      if (chart){ chart.data.labels=[]; chart.data.datasets[0].data=[]; chart.update(); }
+      $scope.stMsg='Esperando próximo run...';
+    }, 15000, 1);
+  });
+
+  $scope.pctAccel = function() { return Math.min(($scope.accel/10)*100, 100); };
+});
+
+// ── Controlador Historial ─────────────────────────────────────
+app.controller('HistCtrl', function($scope, Api) {
+  $scope.runs    = [];
+  $scope.stats   = null;
+  $scope.loading = true;
+  $scope.err     = null;
+  $scope.q       = '';
+  $scope.col     = 'created_at';
+  $scope.desc    = true;
+
+  function load() {
+    $scope.loading = true;
+    $scope.err     = null;
+    Api.runs()
+      .then(function(r){ $scope.runs = r; })
+      .catch(function(){ $scope.err = 'No se pudo conectar con el servidor'; })
+      .finally(function(){ $scope.loading = false; });
+    Api.stats().then(function(s){ $scope.stats = s; });
+  }
+
+  load();
+  $scope.load = load;
+
+  $scope.o = function(c) {
+    $scope.desc = ($scope.col === c) ? !$scope.desc : true;
+    $scope.col  = c;
+  };
+
+  $scope.del = function(r) {
+    if (!confirm('¿Eliminar run de ' + r.vehicle_name + '?')) return;
+    Api.del(r._id)
+      .then(function(){
+        $scope.runs.splice($scope.runs.indexOf(r), 1);
+        Api.stats().then(function(s){ $scope.stats = s; });
+      })
+      .catch(function(){ alert('No se pudo eliminar'); });
+  };
 });
 </script>
-
 </body>
 </html>
