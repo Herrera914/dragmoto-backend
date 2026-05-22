@@ -171,6 +171,48 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
   .pchart{grid-column:1/3}
   .sband{grid-template-columns:repeat(2,1fr)}
 }
+
+/* ── Modal de detalle ─────────────────────────────────────────── */
+.bver{background:rgba(255,107,0,0.12);border:1px solid rgba(255,107,0,0.4);border-radius:3px;color:var(--orange);padding:3px 9px;font-family:var(--orb);font-size:0.5rem;font-weight:700;cursor:pointer;letter-spacing:0.08em;transition:all 0.2s}
+.bver:hover{background:var(--orange);color:#000}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
+.modal-box{background:var(--s1);border:1px solid var(--border2);border-radius:10px;width:100%;max-width:860px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:0}
+.modal-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:20px 24px 16px;border-bottom:1px solid var(--border)}
+.modal-title{font-family:var(--orb);font-size:1.1rem;font-weight:900;color:var(--text);letter-spacing:0.08em}
+.modal-sub{font-family:var(--mon);font-size:0.65rem;color:var(--muted2);margin-top:4px}
+.modal-close{background:transparent;border:1px solid var(--border2);border-radius:4px;color:var(--muted2);padding:6px 10px;font-size:0.9rem;cursor:pointer;transition:all 0.2s;flex-shrink:0}
+.modal-close:hover{border-color:var(--red);color:var(--red)}
+
+.modal-hero{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border)}
+.hero-item{background:var(--s2);padding:16px;text-align:center}
+.hero-lbl{font-family:var(--orb);font-size:0.45rem;font-weight:700;letter-spacing:0.18em;color:var(--muted);margin-bottom:8px}
+.hero-val{font-family:var(--orb);font-size:1.8rem;font-weight:900;line-height:1}
+.hero-unit{font-family:var(--mon);font-size:0.6rem;color:var(--muted2);margin-top:4px}
+
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid var(--border)}
+.modal-section{padding:20px 24px;border-right:1px solid var(--border)}
+.modal-section:last-child{border-right:none}
+.msec-title{font-family:var(--orb);font-size:0.55rem;font-weight:700;letter-spacing:0.16em;color:var(--muted);margin-bottom:12px}
+.msec-rows{display:flex;flex-direction:column;gap:6px}
+.mrow{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;transition:all 0.2s}
+.mrow-on{border-color:rgba(0,230,118,0.35);background:rgba(0,230,118,0.04)}
+.mrow-on-o{border-color:rgba(255,107,0,0.35);background:rgba(255,107,0,0.04)}
+.mrow-lbl{font-family:var(--raj);font-size:0.78rem;font-weight:600;color:var(--muted2)}
+.mrow-on .mrow-lbl{color:var(--text)}
+.mrow-on-o .mrow-lbl{color:var(--text)}
+.mrow-val{font-family:var(--orb);font-size:0.85rem;font-weight:700;color:var(--muted)}
+.mrow-on .mrow-val{color:var(--green)}
+.mrow-on-o .mrow-val{color:var(--orange)}
+
+.modal-chart-wrap{padding:20px 24px;border-bottom:1px solid var(--border)}
+.modal-footer{display:flex;justify-content:space-between;align-items:center;padding:16px 24px}
+
+@media(max-width:700px){
+  .modal-hero{grid-template-columns:repeat(3,1fr)}
+  .modal-grid{grid-template-columns:1fr}
+  .modal-section{border-right:none;border-bottom:1px solid var(--border)}
+}
 </style>
 </head>
 
@@ -385,7 +427,10 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
               <span ng-if="r.setup_notes">{{ r.setup_notes }}</span>
               <span ng-if="!r.setup_notes" style="color:var(--muted)">—</span>
             </td>
-            <td><button class="bdel" ng-click="del(r)">DEL</button></td>
+            <td style="display:flex;gap:6px">
+              <button class="bver" ng-click="ver(r)">VER</button>
+              <button class="bdel" ng-click="del(r)">DEL</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -395,6 +440,81 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
       No hay runs registrados aún.
     </div>
 
+  </div>
+</div>
+
+<!-- ══ MODAL DETALLE RUN ══════════════════════════════════════════ -->
+<div class="modal-overlay" ng-show="modalRun" ng-click="cerrarModal($event)">
+  <div class="modal-box" ng-click="$event.stopPropagation()">
+    <div class="modal-hdr">
+      <div>
+        <div class="modal-title">{{ modalRun.vehicle_name || 'Sin vehículo' }}</div>
+        <div class="modal-sub">{{ modalRun.created_at | date:'dd/MM/yyyy HH:mm' }} · {{ modalRun.mode }}</div>
+      </div>
+      <button class="modal-close" ng-click="modalRun=null">✕</button>
+    </div>
+    <div class="modal-hero">
+      <div class="hero-item">
+        <div class="hero-lbl">TOP SPEED</div>
+        <div class="hero-val" style="color:var(--orange)">{{ modalRun.top_speed | number:1 }}</div>
+        <div class="hero-unit">km/h</div>
+      </div>
+      <div class="hero-item">
+        <div class="hero-lbl">DISTANCIA</div>
+        <div class="hero-val" style="color:var(--green)">{{ (modalRun.total_distance/1000) | number:2 }}</div>
+        <div class="hero-unit">km</div>
+      </div>
+      <div class="hero-item">
+        <div class="hero-lbl">ACEL. PICO</div>
+        <div class="hero-val" style="color:var(--blue)">{{ modalRun.peak_acceleration | number:2 }}</div>
+        <div class="hero-unit">m/s²</div>
+      </div>
+      <div class="hero-item">
+        <div class="hero-lbl">TRAP ¼ MI</div>
+        <div class="hero-val" style="color:var(--orange2)">{{ modalRun.trap_speed_quarter ? (modalRun.trap_speed_quarter|number:1) : '—' }}</div>
+        <div class="hero-unit">km/h</div>
+      </div>
+      <div class="hero-item">
+        <div class="hero-lbl">SALIDA</div>
+        <div class="hero-val" style="font-size:1.1rem;margin-top:6px">
+          <span class="badge" ng-class="{bg:modalRun.launch_quality==='EXCELENTE'||modalRun.launch_quality==='BUENA',bo:modalRun.launch_quality==='REGULAR',br:modalRun.launch_quality==='POBRE',bm:!modalRun.launch_quality}">{{ modalRun.launch_quality||'—' }}</span>
+        </div>
+        <div class="hero-unit">&nbsp;</div>
+      </div>
+    </div>
+    <div class="modal-grid">
+      <div class="modal-section">
+        <div class="msec-title">⚡ TIEMPOS DE VELOCIDAD</div>
+        <div class="msec-rows">
+          <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_30}"><span class="mrow-lbl">0 → 30 km/h</span><span class="mrow-val">{{ modalRun.zero_to_30?(modalRun.zero_to_30|number:2)+"s":"—" }}</span></div>
+          <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_60}"><span class="mrow-lbl">0 → 60 km/h</span><span class="mrow-val">{{ modalRun.zero_to_60?(modalRun.zero_to_60|number:2)+"s":"—" }}</span></div>
+          <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_80}"><span class="mrow-lbl">0 → 80 km/h</span><span class="mrow-val">{{ modalRun.zero_to_80?(modalRun.zero_to_80|number:2)+"s":"—" }}</span></div>
+          <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_100}"><span class="mrow-lbl">0 → 100 km/h</span><span class="mrow-val">{{ modalRun.zero_to_100?(modalRun.zero_to_100|number:2)+"s":"—" }}</span></div>
+          <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_120}"><span class="mrow-lbl">0 → 120 km/h</span><span class="mrow-val">{{ modalRun.zero_to_120?(modalRun.zero_to_120|number:2)+"s":"—" }}</span></div>
+          <div class="mrow" ng-class="{'mrow-on':modalRun.sixty_to_hundred}"><span class="mrow-lbl">60 → 100 km/h</span><span class="mrow-val">{{ modalRun.sixty_to_hundred?(modalRun.sixty_to_hundred|number:2)+"s":"—" }}</span></div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <div class="msec-title">📏 TIEMPOS DE DISTANCIA</div>
+        <div class="msec-rows">
+          <div class="mrow" ng-class="{'mrow-on-o':modalRun.hundred_meters}"><span class="mrow-lbl">100 metros</span><span class="mrow-val">{{ modalRun.hundred_meters?(modalRun.hundred_meters|number:2)+"s":"—" }}</span></div>
+          <div class="mrow" ng-class="{'mrow-on-o':modalRun.eighth_mile}"><span class="mrow-lbl">⅛ milla (201 m)</span><span class="mrow-val">{{ modalRun.eighth_mile?(modalRun.eighth_mile|number:2)+"s":"—" }}</span></div>
+          <div class="mrow" ng-class="{'mrow-on-o':modalRun.quarter_mile}"><span class="mrow-lbl">¼ milla (402 m)</span><span class="mrow-val">{{ modalRun.quarter_mile?(modalRun.quarter_mile|number:2)+"s":"—" }}</span></div>
+          <div class="mrow" ng-class="{'mrow-on-o':modalRun.one_km}"><span class="mrow-lbl">1 kilómetro</span><span class="mrow-val">{{ modalRun.one_km?(modalRun.one_km|number:2)+"s":"—" }}</span></div>
+          <div class="mrow" ng-class="{'mrow-on-o':modalRun.trap_speed_quarter}"><span class="mrow-lbl">Trap ¼ milla</span><span class="mrow-val" style="color:var(--blue)">{{ modalRun.trap_speed_quarter?(modalRun.trap_speed_quarter|number:1)+" km/h":"—" }}</span></div>
+          <div class="mrow" ng-if="modalRun.setup_notes"><span class="mrow-lbl">Custom</span><span class="mrow-val" style="font-size:0.68rem;color:var(--muted2)">{{ modalRun.setup_notes }}</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-chart-wrap">
+      <div class="msec-title" style="margin-bottom:12px">📊 COMPARATIVA DE TIEMPOS</div>
+      <canvas id="modalChart" height="90"></canvas>
+      <div style="text-align:center;font-family:var(--mon);font-size:0.58rem;color:var(--muted);margin-top:8px">Solo tiempos obtenidos en este run — barras más cortas = mejor rendimiento</div>
+    </div>
+    <div class="modal-footer">
+      <div style="font-family:var(--mon);font-size:0.62rem;color:var(--muted)">ID: {{ modalRun._id }}</div>
+      <button class="btn btng" ng-click="modalRun=null">CERRAR</button>
+    </div>
   </div>
 </div>
 
@@ -557,6 +677,90 @@ app.controller('HistCtrl', function($scope, Api) {
       })
       .catch(function(){ alert('No se pudo eliminar'); });
   };
+
+  // ── Modal de detalle ────────────────────────────────────────
+  $scope.modalRun  = null;
+  var modalChart   = null;
+
+  $scope.ver = function(r) {
+    $scope.modalRun = r;
+    // Esperar a que Angular renderice el canvas antes de dibujar
+    setTimeout(function() { dibujarGraficaModal(r); }, 150);
+  };
+
+  $scope.cerrarModal = function(e) {
+    if (e.target.classList.contains('modal-overlay')) {
+      $scope.$apply(function() { $scope.modalRun = null; });
+    }
+  };
+
+  function dibujarGraficaModal(r) {
+    var canvas = document.getElementById('modalChart');
+    if (!canvas) return;
+
+    // Destruir gráfica anterior si existe
+    if (modalChart) { modalChart.destroy(); modalChart = null; }
+
+    // Construir datos: solo los que tienen valor
+    var labels = [];
+    var valores = [];
+    var colores = [];
+
+    function add(lbl, val, color) {
+      if (val !== null && val !== undefined) {
+        labels.push(lbl);
+        valores.push(parseFloat(val.toFixed(3)));
+        colores.push(color);
+      }
+    }
+
+    add('0→30',   r.zero_to_30,       'rgba(0,230,118,0.7)');
+    add('0→60',   r.zero_to_60,       'rgba(0,230,118,0.7)');
+    add('0→80',   r.zero_to_80,       'rgba(0,230,118,0.7)');
+    add('0→100',  r.zero_to_100,      'rgba(0,230,118,0.7)');
+    add('0→120',  r.zero_to_120,      'rgba(0,230,118,0.7)');
+    add('60→100', r.sixty_to_hundred, 'rgba(0,180,255,0.7)');
+    add('100 m',  r.hundred_meters,   'rgba(255,107,0,0.7)');
+    add('⅛ mi',   r.eighth_mile,      'rgba(255,107,0,0.7)');
+    add('¼ mi',   r.quarter_mile,     'rgba(255,107,0,0.7)');
+    add('1 km',   r.one_km,           'rgba(255,107,0,0.7)');
+
+    if (labels.length === 0) {
+      canvas.parentElement.innerHTML += '<p style="text-align:center;color:#454560;font-family:monospace;font-size:0.75rem;margin-top:12px">Sin tiempos registrados en este run</p>';
+      return;
+    }
+
+    modalChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Segundos',
+          data: valores,
+          backgroundColor: colores,
+          borderColor: colores.map(function(c){ return c.replace('0.7','1'); }),
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        animation: { duration: 500 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) { return ctx.parsed.y.toFixed(2) + ' s'; }
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { color: '#6b6b8a', font: { family: "'Share Tech Mono'", size: 11 } }, grid: { color: 'rgba(255,255,255,0.03)' } },
+          y: { ticks: { color: '#6b6b8a', font: { family: "'Share Tech Mono'", size: 10 }, callback: function(v){ return v + 's'; } }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true }
+        }
+      }
+    });
+  }
 });
 </script>
 </body>
