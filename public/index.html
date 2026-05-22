@@ -269,11 +269,13 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
 <div class="body fin" ng-show="tab==='historial'" ng-controller="HistCtrl">
   <div class="hwrap">
 
-    <div class="sband" ng-if="stats">
-      <div class="spill spo"><div class="splbl">TOTAL RUNS</div>    <div class="spval">{{ stats.totalRuns||0 }}</div></div>
-      <div class="spill spb"><div class="splbl">MEJOR TOP SPEED</div><div class="spval">{{ stats.bestTopSpeed ? (stats.bestTopSpeed|number:1)+' km/h':'—' }}</div></div>
-      <div class="spill spg"><div class="splbl">MEJOR 0→100</div>   <div class="spval">{{ stats.bestZeroTo100  ? (stats.bestZeroTo100 |number:2)+'s':'—' }}</div></div>
-      <div class="spill spy"><div class="splbl">MEJOR ¼ MILLA</div> <div class="spval">{{ stats.bestQuarterMile? (stats.bestQuarterMile|number:2)+'s':'—' }}</div></div>
+    <div class="sband" ng-if="stats" style="grid-template-columns:repeat(6,1fr)">
+      <div class="spill spo"><div class="splbl">TOTAL RUNS</div>       <div class="spval">{{ stats.totalRuns||0 }}</div></div>
+      <div class="spill spb"><div class="splbl">MEJOR TOP SPEED</div>  <div class="spval">{{ stats.bestTopSpeed     ? (stats.bestTopSpeed    |number:1)+' km/h':'—' }}</div></div>
+      <div class="spill spg"><div class="splbl">MEJOR 0→100</div>      <div class="spval">{{ stats.bestZeroTo100   ? (stats.bestZeroTo100  |number:2)+'s':'—' }}</div></div>
+      <div class="spill spy"><div class="splbl">MEJOR 100 M</div>      <div class="spval">{{ stats.bestHundredMeters? (stats.bestHundredMeters|number:2)+'s':'—' }}</div></div>
+      <div class="spill" style="border-top:2px solid var(--orange)"><div class="splbl">MEJOR ⅛ MILLA</div>  <div class="spval" style="color:var(--orange)">{{ stats.bestEighthMile  ? (stats.bestEighthMile  |number:2)+'s':'—' }}</div></div>
+      <div class="spill" style="border-top:2px solid var(--blue)">  <div class="splbl">MEJOR ¼ MILLA</div>  <div class="spval" style="color:var(--blue)">  {{ stats.bestQuarterMile? (stats.bestQuarterMile|number:2)+'s':'—' }}</div></div>
     </div>
 
     <div class="hctrl">
@@ -288,38 +290,100 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
 
     <div class="err" ng-if="err && !loading">⚠ {{ err }}</div>
 
-    <div class="twrap" ng-if="!loading && !err && runs.length">
-      <table>
+    <!-- Scroll horizontal para tabla completa -->
+    <div class="twrap" ng-if="!loading && !err && runs.length" style="overflow-x:auto">
+      <table style="min-width:1200px">
         <thead>
           <tr>
             <th ng-click="o('created_at')">FECHA</th>
             <th ng-click="o('vehicle_name')">VEHÍCULO</th>
             <th ng-click="o('top_speed')">TOP SPEED</th>
-            <th ng-click="o('zero_to_60')">0→60</th>
-            <th ng-click="o('zero_to_100')">0→100</th>
-            <th ng-click="o('quarter_mile')">¼ MILLA</th>
+            <th ng-click="o('zero_to_30')"  title="0 a 30 km/h">0→30</th>
+            <th ng-click="o('zero_to_60')"  title="0 a 60 km/h">0→60</th>
+            <th ng-click="o('zero_to_80')"  title="0 a 80 km/h">0→80</th>
+            <th ng-click="o('zero_to_100')" title="0 a 100 km/h">0→100</th>
+            <th ng-click="o('zero_to_120')" title="0 a 120 km/h">0→120</th>
+            <th ng-click="o('sixty_to_hundred')" title="60 a 100 km/h">60→100</th>
+            <th ng-click="o('hundred_meters')" title="100 metros">100 M</th>
+            <th ng-click="o('eighth_mile')"  title="1/8 de milla (201m)">⅛ MI</th>
+            <th ng-click="o('quarter_mile')" title="1/4 de milla (402m)">¼ MI</th>
+            <th ng-click="o('one_km')"       title="1 kilómetro">1 KM</th>
             <th ng-click="o('trap_speed_quarter')">TRAP</th>
-            <th ng-click="o('total_distance')">DISTANCIA</th>
+            <th ng-click="o('peak_acceleration')">ACEL</th>
+            <th ng-click="o('total_distance')">DIST</th>
             <th>SALIDA</th>
+            <th>NOTAS</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           <tr ng-repeat="r in runs | filter:q | orderBy:col:desc">
-            <td style="color:var(--muted2)">{{ r.created_at | date:'dd/MM/yy HH:mm' }}</td>
+            <td style="color:var(--muted2);white-space:nowrap">{{ r.created_at | date:'dd/MM/yy HH:mm' }}</td>
             <td class="tdveh">{{ r.vehicle_name||'—' }}</td>
             <td class="tdtop">{{ r.top_speed|number:1 }} km/h</td>
-            <td>{{ r.zero_to_60   ? (r.zero_to_60  |number:2)+'s':'—' }}</td>
-            <td>{{ r.zero_to_100  ? (r.zero_to_100 |number:2)+'s':'—' }}</td>
-            <td>{{ r.quarter_mile ? (r.quarter_mile|number:2)+'s':'—' }}</td>
-            <td>{{ r.trap_speed_quarter ? (r.trap_speed_quarter|number:1)+' km/h':'—' }}</td>
+
+            <!-- Velocidad 0→30 -->
+            <td ng-class="{'cg': r.zero_to_30}">
+              {{ r.zero_to_30 ? (r.zero_to_30|number:2)+'s' : '—' }}
+            </td>
+            <!-- Velocidad 0→60 -->
+            <td ng-class="{'cg': r.zero_to_60}">
+              {{ r.zero_to_60 ? (r.zero_to_60|number:2)+'s' : '—' }}
+            </td>
+            <!-- Velocidad 0→80 -->
+            <td ng-class="{'cg': r.zero_to_80}">
+              {{ r.zero_to_80 ? (r.zero_to_80|number:2)+'s' : '—' }}
+            </td>
+            <!-- Velocidad 0→100 -->
+            <td ng-class="{'cg': r.zero_to_100}">
+              {{ r.zero_to_100 ? (r.zero_to_100|number:2)+'s' : '—' }}
+            </td>
+            <!-- Velocidad 0→120 -->
+            <td ng-class="{'cg': r.zero_to_120}">
+              {{ r.zero_to_120 ? (r.zero_to_120|number:2)+'s' : '—' }}
+            </td>
+            <!-- 60→100 -->
+            <td ng-class="{'cg': r.sixty_to_hundred}">
+              {{ r.sixty_to_hundred ? (r.sixty_to_hundred|number:2)+'s' : '—' }}
+            </td>
+            <!-- 100 metros -->
+            <td ng-class="{'co': r.hundred_meters}">
+              {{ r.hundred_meters ? (r.hundred_meters|number:2)+'s' : '—' }}
+            </td>
+            <!-- 1/8 milla -->
+            <td ng-class="{'co': r.eighth_mile}">
+              {{ r.eighth_mile ? (r.eighth_mile|number:2)+'s' : '—' }}
+            </td>
+            <!-- 1/4 milla -->
+            <td ng-class="{'co': r.quarter_mile}">
+              {{ r.quarter_mile ? (r.quarter_mile|number:2)+'s' : '—' }}
+            </td>
+            <!-- 1 km -->
+            <td ng-class="{'co': r.one_km}">
+              {{ r.one_km ? (r.one_km|number:2)+'s' : '—' }}
+            </td>
+            <!-- Trap speed -->
+            <td style="color:var(--blue)">
+              {{ r.trap_speed_quarter ? (r.trap_speed_quarter|number:1)+' km/h' : '—' }}
+            </td>
+            <!-- Aceleración pico -->
+            <td style="color:var(--blue)">
+              {{ r.peak_acceleration ? (r.peak_acceleration|number:2)+' m/s²' : '—' }}
+            </td>
+            <!-- Distancia total -->
             <td>{{ (r.total_distance/1000)|number:2 }} km</td>
+            <!-- Badge salida -->
             <td>
               <span class="badge" ng-class="{
                 bg: r.launch_quality==='EXCELENTE'||r.launch_quality==='BUENA',
                 bo: r.launch_quality==='REGULAR',
                 br: r.launch_quality==='POBRE',
                 bm: !r.launch_quality }">{{ r.launch_quality||'—' }}</span>
+            </td>
+            <!-- Distancias custom (8km, 12km, etc.) guardadas en setup_notes -->
+            <td style="color:var(--muted2);font-size:0.65rem;max-width:160px;white-space:normal;line-height:1.4">
+              <span ng-if="r.setup_notes">{{ r.setup_notes }}</span>
+              <span ng-if="!r.setup_notes" style="color:var(--muted)">—</span>
             </td>
             <td><button class="bdel" ng-click="del(r)">DEL</button></td>
           </tr>
