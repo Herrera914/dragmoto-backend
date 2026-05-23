@@ -440,8 +440,6 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
       No hay runs registrados aún.
     </div>
 
-  </div>
-</div>
 
 <!-- ══ MODAL DETALLE RUN ══════════════════════════════════════════ -->
 <div class="modal-overlay" ng-show="modalRun" ng-click="cerrarModal($event)">
@@ -506,6 +504,35 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
         </div>
       </div>
     </div>
+    <!-- Tests custom configurados por el usuario -->
+    <div class="modal-custom" ng-if="tieneCustom(modalRun)">
+      <div class="modal-section" style="border-right:none;border-top:1px solid var(--border)">
+        <div class="msec-title">⚙ TESTS PERSONALIZADOS</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <!-- Speed tests custom -->
+          <div ng-if="parseCustomSpeed(modalRun).length > 0">
+            <div style="font-family:var(--mon);font-size:0.55rem;color:var(--muted);margin-bottom:8px;letter-spacing:0.1em">VELOCIDAD</div>
+            <div class="msec-rows">
+              <div class="mrow" ng-class="{'mrow-on': r.timeSeconds}" ng-repeat="r in parseCustomSpeed(modalRun)">
+                <span class="mrow-lbl">{{ r.range }} km/h</span>
+                <span class="mrow-val">{{ r.timeSeconds ? (r.timeSeconds | number:2)+"s" : "—" }}</span>
+              </div>
+            </div>
+          </div>
+          <!-- Distance tests custom -->
+          <div ng-if="parseCustomDist(modalRun).length > 0">
+            <div style="font-family:var(--mon);font-size:0.55rem;color:var(--muted);margin-bottom:8px;letter-spacing:0.1em">DISTANCIA</div>
+            <div class="msec-rows">
+              <div class="mrow" ng-class="{'mrow-on-o': r.timeSeconds}" ng-repeat="r in parseCustomDist(modalRun)">
+                <span class="mrow-lbl">{{ r.targetMeters >= 1000 ? (r.targetMeters/1000 | number:1)+"km" : r.targetMeters+"m" }}</span>
+                <span class="mrow-val">{{ r.timeSeconds ? (r.timeSeconds | number:2)+"s" : "—" }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-chart-wrap">
       <div class="msec-title" style="margin-bottom:12px">📊 COMPARATIVA DE TIEMPOS</div>
       <canvas id="modalChart" height="90"></canvas>
@@ -517,7 +544,10 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
     </div>
   </div>
 </div>
+</div>
 
+
+</div>
 <!-- ── Scripts ── -->
 <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
@@ -668,6 +698,26 @@ app.controller('HistCtrl', function($scope, Api) {
     $scope.col  = c;
   };
 
+  // ── Helpers para tests custom (parseo del JSON) ──────────────
+  $scope.parseCustomSpeed = function(r) {
+    if (!r || !r.custom_speed_results) return [];
+    try { return JSON.parse(r.custom_speed_results) || []; }
+    catch(e) { return []; }
+  };
+
+  $scope.parseCustomDist = function(r) {
+    if (!r || !r.custom_distance_results) return [];
+    try { return JSON.parse(r.custom_distance_results) || []; }
+    catch(e) { return []; }
+  };
+
+  $scope.tieneCustom = function(r) {
+    if (!r) return false;
+    var s = $scope.parseCustomSpeed(r);
+    var d = $scope.parseCustomDist(r);
+    return s.length > 0 || d.length > 0;
+  };
+
   $scope.del = function(r) {
     if (!confirm('¿Eliminar run de ' + r.vehicle_name + '?')) return;
     Api.del(r._id)
@@ -724,6 +774,33 @@ app.controller('HistCtrl', function($scope, Api) {
     add('⅛ mi',   r.eighth_mile,      'rgba(255,107,0,0.7)');
     add('¼ mi',   r.quarter_mile,     'rgba(255,107,0,0.7)');
     add('1 km',   r.one_km,           'rgba(255,107,0,0.7)');
+
+    // Agregar tests custom de velocidad
+    try {
+      var cs = JSON.parse(r.custom_speed_results || '[]');
+      cs.forEach(function(t) {
+        if (t.timeSeconds) {
+          labels.push(t.range + ' km/h');
+          valores.push(parseFloat(t.timeSeconds.toFixed(3)));
+          colores.push('rgba(180,100,255,0.7)');
+        }
+      });
+    } catch(e) {}
+
+    // Agregar tests custom de distancia
+    try {
+      var cd = JSON.parse(r.custom_distance_results || '[]');
+      cd.forEach(function(t) {
+        if (t.timeSeconds) {
+          var lbl = t.targetMeters >= 1000
+            ? (t.targetMeters/1000).toFixed(1) + 'km'
+            : t.targetMeters + 'm';
+          labels.push(lbl);
+          valores.push(parseFloat(t.timeSeconds.toFixed(3)));
+          colores.push('rgba(255,220,0,0.7)');
+        }
+      });
+    } catch(e) {}
 
     if (labels.length === 0) {
       canvas.parentElement.innerHTML += '<p style="text-align:center;color:#454560;font-family:monospace;font-size:0.75rem;margin-top:12px">Sin tiempos registrados en este run</p>';

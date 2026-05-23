@@ -8,6 +8,12 @@ const RunSchema = new mongoose.Schema({
     setup_notes:  { type: String, default: '' },
     user_id:      { type: String, default: 'anonymous' },
 
+    // Tests custom configurados por el usuario (JSON string → array de objetos)
+    // Speed: [{"range":"0-8","timeSeconds":3.21,"distanceMeters":45.2}, ...]
+    // Distance: [{"targetMeters":12000,"timeSeconds":145.3,"trapSpeedKmh":89.2}, ...]
+    custom_speed_results:    { type: String, default: '[]' },
+    custom_distance_results: { type: String, default: '[]' },
+
     // Speed tests (segundos)
     zero_to_30:       { type: Number, default: null },
     zero_to_60:       { type: Number, default: null },
