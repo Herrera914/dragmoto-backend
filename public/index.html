@@ -514,7 +514,7 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
             <div style="font-family:var(--mon);font-size:0.55rem;color:var(--muted);margin-bottom:8px;letter-spacing:0.1em">VELOCIDAD</div>
             <div class="msec-rows">
               <div class="mrow" ng-class="{'mrow-on': r.timeSeconds}" ng-repeat="r in parseCustomSpeed(modalRun)">
-                <span class="mrow-lbl">{{ r.range }} km/h</span>
+                <span class="mrow-lbl">0 → {{ r.range.split("-")[1] }} km/h</span>
                 <span class="mrow-val">{{ r.timeSeconds ? (r.timeSeconds | number:2)+"s" : "—" }}</span>
               </div>
             </div>
@@ -524,7 +524,7 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
             <div style="font-family:var(--mon);font-size:0.55rem;color:var(--muted);margin-bottom:8px;letter-spacing:0.1em">DISTANCIA</div>
             <div class="msec-rows">
               <div class="mrow" ng-class="{'mrow-on-o': r.timeSeconds}" ng-repeat="r in parseCustomDist(modalRun)">
-                <span class="mrow-lbl">{{ r.targetMeters >= 1000 ? (r.targetMeters/1000 | number:1)+"km" : r.targetMeters+"m" }}</span>
+                <span class="mrow-lbl">{{ r.targetMeters >= 1000 ? (r.targetMeters/1000 | number:2)+"km" : r.targetMeters+"m" }}</span>
                 <span class="mrow-val">{{ r.timeSeconds ? (r.timeSeconds | number:2)+"s" : "—" }}</span>
               </div>
             </div>
@@ -775,12 +775,13 @@ app.controller('HistCtrl', function($scope, Api) {
     add('¼ mi',   r.quarter_mile,     'rgba(255,107,0,0.7)');
     add('1 km',   r.one_km,           'rgba(255,107,0,0.7)');
 
-    // Agregar tests custom de velocidad
+    // Agregar tests custom de velocidad (incluso si no se alcanzó el tiempo)
     try {
       var cs = JSON.parse(r.custom_speed_results || '[]');
       cs.forEach(function(t) {
+        // Solo agregar a la gráfica si tiene tiempo real — sin tiempo no aporta visualmente
         if (t.timeSeconds) {
-          labels.push(t.range + ' km/h');
+          labels.push('0→' + t.range.split('-')[1] + ' km/h');
           valores.push(parseFloat(t.timeSeconds.toFixed(3)));
           colores.push('rgba(180,100,255,0.7)');
         }
@@ -793,7 +794,7 @@ app.controller('HistCtrl', function($scope, Api) {
       cd.forEach(function(t) {
         if (t.timeSeconds) {
           var lbl = t.targetMeters >= 1000
-            ? (t.targetMeters/1000).toFixed(1) + 'km'
+            ? (t.targetMeters/1000).toFixed(2) + 'km'
             : t.targetMeters + 'm';
           labels.push(lbl);
           valores.push(parseFloat(t.timeSeconds.toFixed(3)));
