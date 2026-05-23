@@ -504,26 +504,24 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
         </div>
       </div>
     </div>
-    <!-- Tests custom configurados por el usuario -->
-    <div class="modal-custom" ng-if="tieneCustom(modalRun)">
+    <!-- Tests custom — usa variables del scope (no funciones) para evitar infinite digest -->
+    <div class="modal-custom" ng-if="modalCustomSpeed.length > 0 || modalCustomDist.length > 0">
       <div class="modal-section" style="border-right:none;border-top:1px solid var(--border)">
         <div class="msec-title">⚙ TESTS PERSONALIZADOS</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <!-- Speed tests custom -->
-          <div ng-if="parseCustomSpeed(modalRun).length > 0">
+          <div ng-if="modalCustomSpeed.length > 0">
             <div style="font-family:var(--mon);font-size:0.55rem;color:var(--muted);margin-bottom:8px;letter-spacing:0.1em">VELOCIDAD</div>
             <div class="msec-rows">
-              <div class="mrow" ng-class="{'mrow-on': r.timeSeconds}" ng-repeat="r in parseCustomSpeed(modalRun)">
+              <div class="mrow" ng-class="{'mrow-on': r.timeSeconds}" ng-repeat="r in modalCustomSpeed">
                 <span class="mrow-lbl">{{ r.range }} km/h</span>
                 <span class="mrow-val">{{ r.timeSeconds ? (r.timeSeconds | number:2)+"s" : "—" }}</span>
               </div>
             </div>
           </div>
-          <!-- Distance tests custom -->
-          <div ng-if="parseCustomDist(modalRun).length > 0">
+          <div ng-if="modalCustomDist.length > 0">
             <div style="font-family:var(--mon);font-size:0.55rem;color:var(--muted);margin-bottom:8px;letter-spacing:0.1em">DISTANCIA</div>
             <div class="msec-rows">
-              <div class="mrow" ng-class="{'mrow-on-o': r.timeSeconds}" ng-repeat="r in parseCustomDist(modalRun)">
+              <div class="mrow" ng-class="{'mrow-on-o': r.timeSeconds}" ng-repeat="r in modalCustomDist">
                 <span class="mrow-lbl">{{ r.targetMeters >= 1000 ? (r.targetMeters/1000 | number:2)+"km" : r.targetMeters+"m" }}</span>
                 <span class="mrow-val">{{ r.timeSeconds ? (r.timeSeconds | number:2)+"s" : "—" }}</span>
               </div>
@@ -540,7 +538,7 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
     </div>
     <div class="modal-footer">
       <div style="font-family:var(--mon);font-size:0.62rem;color:var(--muted)">ID: {{ modalRun._id }}</div>
-      <button class="btn btng" ng-click="modalRun=null">CERRAR</button>
+      <button class="btn btng" ng-click="modalRun=null;modalCustomSpeed=[];modalCustomDist=[]">CERRAR</button>
     </div>
   </div>
 </div>
@@ -698,26 +696,6 @@ app.controller('HistCtrl', function($scope, Api) {
     $scope.col  = c;
   };
 
-  // ── Helpers para tests custom (parseo del JSON) ──────────────
-  $scope.parseCustomSpeed = function(r) {
-    if (!r || !r.custom_speed_results) return [];
-    try { return JSON.parse(r.custom_speed_results) || []; }
-    catch(e) { return []; }
-  };
-
-  $scope.parseCustomDist = function(r) {
-    if (!r || !r.custom_distance_results) return [];
-    try { return JSON.parse(r.custom_distance_results) || []; }
-    catch(e) { return []; }
-  };
-
-  $scope.tieneCustom = function(r) {
-    if (!r) return false;
-    var s = $scope.parseCustomSpeed(r);
-    var d = $scope.parseCustomDist(r);
-    return s.length > 0 || d.length > 0;
-  };
-
   $scope.del = function(r) {
     if (!confirm('¿Eliminar run de ' + r.vehicle_name + '?')) return;
     Api.del(r._id)
@@ -729,18 +707,38 @@ app.controller('HistCtrl', function($scope, Api) {
   };
 
   // ── Modal de detalle ────────────────────────────────────────
-  $scope.modalRun  = null;
-  var modalChart   = null;
+  $scope.modalRun        = null;
+  $scope.modalCustomSpeed = [];
+  $scope.modalCustomDist  = [];
+  var modalChart          = null;
 
   $scope.ver = function(r) {
     $scope.modalRun = r;
-    // Esperar a que Angular renderice el canvas antes de dibujar
+
+    // Parsear JSON UNA SOLA VEZ y guardar en scope
+    // Si se hiciera en el template con ng-repeat, JSON.parse() correría
+    // en cada digest cycle devolviendo un array nuevo → infinite $digest loop
+    try {
+      $scope.modalCustomSpeed = JSON.parse(r.custom_speed_results || '[]') || [];
+    } catch(e) {
+      $scope.modalCustomSpeed = [];
+    }
+    try {
+      $scope.modalCustomDist = JSON.parse(r.custom_distance_results || '[]') || [];
+    } catch(e) {
+      $scope.modalCustomDist = [];
+    }
+
     setTimeout(function() { dibujarGraficaModal(r); }, 150);
   };
 
   $scope.cerrarModal = function(e) {
     if (e.target.classList.contains('modal-overlay')) {
-      $scope.$apply(function() { $scope.modalRun = null; });
+      $scope.$apply(function() {
+        $scope.modalRun = null;
+        $scope.modalCustomSpeed = [];
+        $scope.modalCustomDist = [];
+      });
     }
   };
 
