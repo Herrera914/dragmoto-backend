@@ -442,7 +442,7 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
 
 
 <!-- ══ MODAL DETALLE RUN ══════════════════════════════════════════ -->
-<div class="modal-overlay" ng-show="modalRun" ng-click="cerrarModal($event)">
+<div class="modal-overlay" ng-show="modalRun" ng-click="cerrarModal()">
   <div class="modal-box" ng-click="$event.stopPropagation()">
     <div class="modal-hdr">
       <div>
@@ -538,7 +538,7 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
     </div>
     <div class="modal-footer">
       <div style="font-family:var(--mon);font-size:0.62rem;color:var(--muted)">ID: {{ modalRun._id }}</div>
-      <button class="btn btng" ng-click="modalRun=null;modalCustomSpeed=[];modalCustomDist=[]">CERRAR</button>
+      <button class="btn btng" ng-click="cerrarModal()">CERRAR</button>
     </div>
   </div>
 </div>
@@ -670,22 +670,28 @@ app.controller('AppCtrl', function($scope, $interval, Sock, Api) {
 
 // ── Controlador Historial ─────────────────────────────────────
 app.controller('HistCtrl', function($scope, Api) {
-  $scope.runs    = [];
-  $scope.stats   = null;
-  $scope.loading = true;
-  $scope.err     = null;
-  $scope.q       = '';
-  $scope.col     = 'created_at';
-  $scope.desc    = true;
+  $scope.runs     = [];
+  $scope.stats    = null;
+  $scope.loading  = true;
+  $scope.err      = null;
+  $scope.q        = '';
+  $scope.col      = 'created_at';
+  $scope.desc     = true;
+
+  // Variables del modal — inicializadas aquí para evitar undefined
+  $scope.modalRun         = null;
+  $scope.modalCustomSpeed = [];
+  $scope.modalCustomDist  = [];
+  var modalChart          = null;
 
   function load() {
     $scope.loading = true;
     $scope.err     = null;
     Api.runs()
-      .then(function(r){ $scope.runs = r; })
-      .catch(function(){ $scope.err = 'No se pudo conectar con el servidor'; })
+      .then(function(r) { $scope.runs = r; })
+      .catch(function()  { $scope.err = 'No se pudo conectar con el servidor'; })
       .finally(function(){ $scope.loading = false; });
-    Api.stats().then(function(s){ $scope.stats = s; });
+    Api.stats().then(function(s) { $scope.stats = s; });
   }
 
   load();
@@ -699,65 +705,50 @@ app.controller('HistCtrl', function($scope, Api) {
   $scope.del = function(r) {
     if (!confirm('¿Eliminar run de ' + r.vehicle_name + '?')) return;
     Api.del(r._id)
-      .then(function(){
+      .then(function() {
         $scope.runs.splice($scope.runs.indexOf(r), 1);
-        Api.stats().then(function(s){ $scope.stats = s; });
+        Api.stats().then(function(s) { $scope.stats = s; });
       })
-      .catch(function(){ alert('No se pudo eliminar'); });
+      .catch(function() { alert('No se pudo eliminar'); });
   };
 
-  // ── Modal de detalle ────────────────────────────────────────
-  $scope.modalRun        = null;
-  $scope.modalCustomSpeed = [];
-  $scope.modalCustomDist  = [];
-  var modalChart          = null;
-
+  // ── Modal VER ─────────────────────────────────────────────────
   $scope.ver = function(r) {
-    $scope.modalRun = r;
-
-    // Parsear JSON UNA SOLA VEZ y guardar en scope
-    // Si se hiciera en el template con ng-repeat, JSON.parse() correría
-    // en cada digest cycle devolviendo un array nuevo → infinite $digest loop
+    // Parsear JSON una sola vez al abrir — nunca en el template
+    // Si se parsea en ng-repeat, JSON.parse devuelve nuevo array
+    // en cada digest → infinite loop → modal no abre
     try {
       $scope.modalCustomSpeed = JSON.parse(r.custom_speed_results || '[]') || [];
-    } catch(e) {
-      $scope.modalCustomSpeed = [];
-    }
+    } catch(e) { $scope.modalCustomSpeed = []; }
+
     try {
       $scope.modalCustomDist = JSON.parse(r.custom_distance_results || '[]') || [];
-    } catch(e) {
-      $scope.modalCustomDist = [];
-    }
+    } catch(e) { $scope.modalCustomDist = []; }
 
-    setTimeout(function() { dibujarGraficaModal(r); }, 150);
+    $scope.modalRun = r;
+
+    // Dibujar gráfica después de que Angular renderice el canvas
+    setTimeout(function() { dibujarGraficaModal(r); }, 200);
   };
 
-  $scope.cerrarModal = function(e) {
-    if (e.target.classList.contains('modal-overlay')) {
-      $scope.$apply(function() {
-        $scope.modalRun = null;
-        $scope.modalCustomSpeed = [];
-        $scope.modalCustomDist = [];
-      });
-    }
+  $scope.cerrarModal = function() {
+    $scope.modalRun         = null;
+    $scope.modalCustomSpeed = [];
+    $scope.modalCustomDist  = [];
+    if (modalChart) { modalChart.destroy(); modalChart = null; }
   };
 
   function dibujarGraficaModal(r) {
     var canvas = document.getElementById('modalChart');
     if (!canvas) return;
-
-    // Destruir gráfica anterior si existe
     if (modalChart) { modalChart.destroy(); modalChart = null; }
 
-    // Construir datos: solo los que tienen valor
-    var labels = [];
-    var valores = [];
-    var colores = [];
+    var labels = [], valores = [], colores = [];
 
     function add(lbl, val, color) {
       if (val !== null && val !== undefined) {
         labels.push(lbl);
-        valores.push(parseFloat(val.toFixed(3)));
+        valores.push(parseFloat(val.toFixed ? val.toFixed(3) : val));
         colores.push(color);
       }
     }
@@ -773,36 +764,32 @@ app.controller('HistCtrl', function($scope, Api) {
     add('¼ mi',   r.quarter_mile,     'rgba(255,107,0,0.7)');
     add('1 km',   r.one_km,           'rgba(255,107,0,0.7)');
 
-    // Agregar tests custom de velocidad (incluso si no se alcanzó el tiempo)
-    try {
-      var cs = JSON.parse(r.custom_speed_results || '[]');
-      cs.forEach(function(t) {
-        // Solo agregar a la gráfica si tiene tiempo real — sin tiempo no aporta visualmente
-        if (t.timeSeconds) {
-          labels.push(t.range + ' km/h');
-          valores.push(parseFloat(t.timeSeconds.toFixed(3)));
-          colores.push('rgba(180,100,255,0.7)');
-        }
-      });
-    } catch(e) {}
+    // Tests custom de velocidad
+    ($scope.modalCustomSpeed || []).forEach(function(t) {
+      if (t.timeSeconds) {
+        labels.push(t.range + ' km/h');
+        valores.push(parseFloat(t.timeSeconds));
+        colores.push('rgba(180,100,255,0.7)');
+      }
+    });
 
-    // Agregar tests custom de distancia
-    try {
-      var cd = JSON.parse(r.custom_distance_results || '[]');
-      cd.forEach(function(t) {
-        if (t.timeSeconds) {
-          var lbl = t.targetMeters >= 1000
-            ? (t.targetMeters/1000).toFixed(2) + 'km'
-            : t.targetMeters + 'm';
-          labels.push(lbl);
-          valores.push(parseFloat(t.timeSeconds.toFixed(3)));
-          colores.push('rgba(255,220,0,0.7)');
-        }
-      });
-    } catch(e) {}
+    // Tests custom de distancia
+    ($scope.modalCustomDist || []).forEach(function(t) {
+      if (t.timeSeconds) {
+        var lbl = t.targetMeters >= 1000
+          ? (t.targetMeters / 1000).toFixed(2) + 'km'
+          : t.targetMeters + 'm';
+        labels.push(lbl);
+        valores.push(parseFloat(t.timeSeconds));
+        colores.push('rgba(255,220,0,0.7)');
+      }
+    });
 
     if (labels.length === 0) {
-      canvas.parentElement.innerHTML += '<p style="text-align:center;color:#454560;font-family:monospace;font-size:0.75rem;margin-top:12px">Sin tiempos registrados en este run</p>';
+      var p = document.createElement('p');
+      p.style.cssText = 'text-align:center;color:#454560;font-family:monospace;font-size:0.75rem;margin-top:12px';
+      p.textContent = 'Sin tiempos registrados en este run';
+      canvas.parentElement.appendChild(p);
       return;
     }
 
@@ -811,10 +798,9 @@ app.controller('HistCtrl', function($scope, Api) {
       data: {
         labels: labels,
         datasets: [{
-          label: 'Segundos',
           data: valores,
           backgroundColor: colores,
-          borderColor: colores.map(function(c){ return c.replace('0.7','1'); }),
+          borderColor: colores.map(function(c) { return c.replace('0.7','1'); }),
           borderWidth: 1,
           borderRadius: 4
         }]
@@ -824,15 +810,11 @@ app.controller('HistCtrl', function($scope, Api) {
         animation: { duration: 500 },
         plugins: {
           legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: function(ctx) { return ctx.parsed.y.toFixed(2) + ' s'; }
-            }
-          }
+          tooltip: { callbacks: { label: function(ctx) { return ctx.parsed.y.toFixed(2) + ' s'; } } }
         },
         scales: {
           x: { ticks: { color: '#6b6b8a', font: { family: "'Share Tech Mono'", size: 11 } }, grid: { color: 'rgba(255,255,255,0.03)' } },
-          y: { ticks: { color: '#6b6b8a', font: { family: "'Share Tech Mono'", size: 10 }, callback: function(v){ return v + 's'; } }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true }
+          y: { ticks: { color: '#6b6b8a', font: { family: "'Share Tech Mono'", size: 10 }, callback: function(v) { return v + 's'; } }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true }
         }
       }
     });
