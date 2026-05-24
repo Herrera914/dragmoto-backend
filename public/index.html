@@ -484,53 +484,50 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
       <div class="modal-section">
         <div class="msec-title">⚡ TIEMPOS DE VELOCIDAD</div>
         <div class="msec-rows">
-          <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_30}"><span class="mrow-lbl">0 → 30 km/h</span><span class="mrow-val">{{ modalRun.zero_to_30?(modalRun.zero_to_30|number:2)+"s":"—" }}</span></div>
-          <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_60}"><span class="mrow-lbl">0 → 60 km/h</span><span class="mrow-val">{{ modalRun.zero_to_60?(modalRun.zero_to_60|number:2)+"s":"—" }}</span></div>
-          <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_80}"><span class="mrow-lbl">0 → 80 km/h</span><span class="mrow-val">{{ modalRun.zero_to_80?(modalRun.zero_to_80|number:2)+"s":"—" }}</span></div>
-          <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_100}"><span class="mrow-lbl">0 → 100 km/h</span><span class="mrow-val">{{ modalRun.zero_to_100?(modalRun.zero_to_100|number:2)+"s":"—" }}</span></div>
-          <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_120}"><span class="mrow-lbl">0 → 120 km/h</span><span class="mrow-val">{{ modalRun.zero_to_120?(modalRun.zero_to_120|number:2)+"s":"—" }}</span></div>
-          <div class="mrow" ng-class="{'mrow-on':modalRun.sixty_to_hundred}"><span class="mrow-lbl">60 → 100 km/h</span><span class="mrow-val">{{ modalRun.sixty_to_hundred?(modalRun.sixty_to_hundred|number:2)+"s":"—" }}</span></div>
+          <!-- Runs nuevos: usa el JSON que tiene TODOS los tests configurados -->
+          <div ng-if="modalCustomSpeed.length > 0">
+            <div class="mrow" ng-class="{'mrow-on': r.timeSeconds}" ng-repeat="r in modalCustomSpeed">
+              <span class="mrow-lbl">{{ r.range }} km/h</span>
+              <span class="mrow-val">{{ r.timeSeconds ? (r.timeSeconds | number:2)+"s" : "—" }}</span>
+            </div>
+          </div>
+          <!-- Runs viejos (sin JSON): usa campos fijos -->
+          <div ng-if="modalCustomSpeed.length === 0">
+            <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_30}"><span class="mrow-lbl">0 → 30 km/h</span><span class="mrow-val">{{ modalRun.zero_to_30?(modalRun.zero_to_30|number:2)+"s":"—" }}</span></div>
+            <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_60}"><span class="mrow-lbl">0 → 60 km/h</span><span class="mrow-val">{{ modalRun.zero_to_60?(modalRun.zero_to_60|number:2)+"s":"—" }}</span></div>
+            <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_80}"><span class="mrow-lbl">0 → 80 km/h</span><span class="mrow-val">{{ modalRun.zero_to_80?(modalRun.zero_to_80|number:2)+"s":"—" }}</span></div>
+            <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_100}"><span class="mrow-lbl">0 → 100 km/h</span><span class="mrow-val">{{ modalRun.zero_to_100?(modalRun.zero_to_100|number:2)+"s":"—" }}</span></div>
+            <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_120}"><span class="mrow-lbl">0 → 120 km/h</span><span class="mrow-val">{{ modalRun.zero_to_120?(modalRun.zero_to_120|number:2)+"s":"—" }}</span></div>
+            <div class="mrow" ng-class="{'mrow-on':modalRun.sixty_to_hundred}"><span class="mrow-lbl">60 → 100 km/h</span><span class="mrow-val">{{ modalRun.sixty_to_hundred?(modalRun.sixty_to_hundred|number:2)+"s":"—" }}</span></div>
+          </div>
         </div>
       </div>
       <div class="modal-section">
         <div class="msec-title">📏 TIEMPOS DE DISTANCIA</div>
         <div class="msec-rows">
-          <div class="mrow" ng-class="{'mrow-on-o':modalRun.hundred_meters}"><span class="mrow-lbl">100 metros</span><span class="mrow-val">{{ modalRun.hundred_meters?(modalRun.hundred_meters|number:2)+"s":"—" }}</span></div>
-          <div class="mrow" ng-class="{'mrow-on-o':modalRun.eighth_mile}"><span class="mrow-lbl">⅛ milla (201 m)</span><span class="mrow-val">{{ modalRun.eighth_mile?(modalRun.eighth_mile|number:2)+"s":"—" }}</span></div>
-          <div class="mrow" ng-class="{'mrow-on-o':modalRun.quarter_mile}"><span class="mrow-lbl">¼ milla (402 m)</span><span class="mrow-val">{{ modalRun.quarter_mile?(modalRun.quarter_mile|number:2)+"s":"—" }}</span></div>
-          <div class="mrow" ng-class="{'mrow-on-o':modalRun.one_km}"><span class="mrow-lbl">1 kilómetro</span><span class="mrow-val">{{ modalRun.one_km?(modalRun.one_km|number:2)+"s":"—" }}</span></div>
-          <div class="mrow" ng-class="{'mrow-on-o':modalRun.trap_speed_quarter}"><span class="mrow-lbl">Trap ¼ milla</span><span class="mrow-val" style="color:var(--blue)">{{ modalRun.trap_speed_quarter?(modalRun.trap_speed_quarter|number:1)+" km/h":"—" }}</span></div>
-          <div class="mrow" ng-if="modalRun.setup_notes"><span class="mrow-lbl">Custom</span><span class="mrow-val" style="font-size:0.68rem;color:var(--muted2)">{{ modalRun.setup_notes }}</span></div>
-        </div>
-      </div>
-    </div>
-    <!-- Tests custom — usa variables del scope (no funciones) para evitar infinite digest -->
-    <div class="modal-custom" ng-if="modalCustomSpeed.length > 0 || modalCustomDist.length > 0">
-      <div class="modal-section" style="border-right:none;border-top:1px solid var(--border)">
-        <div class="msec-title">⚙ TESTS PERSONALIZADOS</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div ng-if="modalCustomSpeed.length > 0">
-            <div style="font-family:var(--mon);font-size:0.55rem;color:var(--muted);margin-bottom:8px;letter-spacing:0.1em">VELOCIDAD</div>
-            <div class="msec-rows">
-              <div class="mrow" ng-class="{'mrow-on': r.timeSeconds}" ng-repeat="r in modalCustomSpeed">
-                <span class="mrow-lbl">{{ r.range }} km/h</span>
-                <span class="mrow-val">{{ r.timeSeconds ? (r.timeSeconds | number:2)+"s" : "—" }}</span>
-              </div>
-            </div>
-          </div>
+          <!-- Runs nuevos: usa el JSON -->
           <div ng-if="modalCustomDist.length > 0">
-            <div style="font-family:var(--mon);font-size:0.55rem;color:var(--muted);margin-bottom:8px;letter-spacing:0.1em">DISTANCIA</div>
-            <div class="msec-rows">
-              <div class="mrow" ng-class="{'mrow-on-o': r.timeSeconds}" ng-repeat="r in modalCustomDist">
-                <span class="mrow-lbl">{{ r.targetMeters >= 1000 ? (r.targetMeters/1000 | number:2)+"km" : r.targetMeters+"m" }}</span>
-                <span class="mrow-val">{{ r.timeSeconds ? (r.timeSeconds | number:2)+"s" : "—" }}</span>
-              </div>
+            <div class="mrow" ng-class="{'mrow-on-o': r.timeSeconds}" ng-repeat="r in modalCustomDist">
+              <span class="mrow-lbl">
+                {{ r.targetMeters >= 1000 ? (r.targetMeters/1000 | number:2)+"km" :
+                   (r.targetMeters >= 400 && r.targetMeters <= 403) ? "¼ milla" :
+                   (r.targetMeters >= 200 && r.targetMeters <= 202) ? "⅛ milla" :
+                   r.targetMeters+"m" }}
+              </span>
+              <span class="mrow-val">{{ r.timeSeconds ? (r.timeSeconds | number:2)+"s" : "—" }}</span>
             </div>
+          </div>
+          <!-- Runs viejos: usa campos fijos -->
+          <div ng-if="modalCustomDist.length === 0">
+            <div class="mrow" ng-class="{'mrow-on-o':modalRun.hundred_meters}"><span class="mrow-lbl">100 metros</span><span class="mrow-val">{{ modalRun.hundred_meters?(modalRun.hundred_meters|number:2)+"s":"—" }}</span></div>
+            <div class="mrow" ng-class="{'mrow-on-o':modalRun.eighth_mile}"><span class="mrow-lbl">⅛ milla (201 m)</span><span class="mrow-val">{{ modalRun.eighth_mile?(modalRun.eighth_mile|number:2)+"s":"—" }}</span></div>
+            <div class="mrow" ng-class="{'mrow-on-o':modalRun.quarter_mile}"><span class="mrow-lbl">¼ milla (402 m)</span><span class="mrow-val">{{ modalRun.quarter_mile?(modalRun.quarter_mile|number:2)+"s":"—" }}</span></div>
+            <div class="mrow" ng-class="{'mrow-on-o':modalRun.one_km}"><span class="mrow-lbl">1 kilómetro</span><span class="mrow-val">{{ modalRun.one_km?(modalRun.one_km|number:2)+"s":"—" }}</span></div>
+            <div class="mrow" ng-class="{'mrow-on-o':modalRun.trap_speed_quarter}"><span class="mrow-lbl">Trap ¼ milla</span><span class="mrow-val" style="color:var(--blue)">{{ modalRun.trap_speed_quarter?(modalRun.trap_speed_quarter|number:1)+" km/h":"—" }}</span></div>
           </div>
         </div>
       </div>
     </div>
-
     <div class="modal-chart-wrap">
       <div class="msec-title" style="margin-bottom:12px">📊 COMPARATIVA DE TIEMPOS</div>
       <canvas id="modalChart" height="90"></canvas>
