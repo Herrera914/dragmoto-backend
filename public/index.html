@@ -352,7 +352,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
         <div class="font-orbitron text-lg font-black text-dm-text tracking-[0.08em]">{{ modalRun.vehicle_name || 'Sin vehículo' }}</div>
         <div class="font-mono text-[0.65rem] text-dm-muted2 mt-1">{{ modalRun.created_at | date:'dd/MM/yyyy HH:mm' }} · {{ modalRun.mode }}</div>
       </div>
-      <button class="bg-transparent border border-dm-border2 rounded text-dm-muted2 px-2.5 py-1.5 text-lg cursor-pointer transition-all duration-200 hover:border-dm-redGlow hover:text-dm-redGlow leading-none" ng-click="modalRun=null">✕</button>
+      <button class="bg-transparent border border-dm-border2 rounded text-dm-muted2 px-2.5 py-1.5 text-lg cursor-pointer transition-all duration-200 hover:border-dm-redGlow hover:text-dm-redGlow leading-none" ng-click="cerrarModal()">✕</button>
     </div>
 
     <div class="grid grid-cols-3 md:grid-cols-5 gap-px bg-dm-border border-b border-dm-border">
