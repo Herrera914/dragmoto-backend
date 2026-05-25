@@ -79,7 +79,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 </style>
 </head>
 
-<body ng-controller="AppCtrl" class="bg-dm-bg text-dm-text font-rajdhani min-h-screen">
+<body ng-controller="AppCtrl" ng-cloak class="bg-dm-bg text-dm-text font-rajdhani min-h-screen">
 
 <header class="sticky top-0 z-[500] flex items-center justify-between px-4 md:px-7 h-14 bg-dm-bg/95 backdrop-blur-xl border-b border-dm-border">
   <div class="flex items-center gap-2.5">
@@ -87,8 +87,8 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
     <div class="font-orbitron text-sm font-black tracking-[0.18em]">DRAG<span class="text-dm-red">MOTO</span></div>
   </div>
   <div class="flex gap-0.5 bg-dm-s1 border border-dm-border rounded-md p-0.5">
-    <button class="px-4 py-1.5 font-orbitron text-[0.5rem] font-bold tracking-[0.12em] rounded cursor-pointer transition-all duration-200" ng-class="tab==='live' ? 'bg-dm-red text-dm-bg' : 'text-dm-muted2 bg-transparent hover:text-dm-text'" ng-click="tab='live'">EN VIVO</button>
-    <button class="px-4 py-1.5 font-orbitron text-[0.5rem] font-bold tracking-[0.12em] rounded cursor-pointer transition-all duration-200" ng-class="tab==='historial' ? 'bg-dm-red text-dm-bg' : 'text-dm-muted2 bg-transparent hover:text-dm-text'" ng-click="tab='historial'">HISTORIAL</button>
+    <button class="px-4 py-1.5 font-orbitron text-[0.5rem] font-bold tracking-[0.12em] rounded cursor-pointer transition-all duration-200" ng-class="ui.tab==='live' ? 'bg-dm-red text-dm-bg' : 'text-dm-muted2 bg-transparent hover:text-dm-text'" ng-click="ui.tab='live'">EN VIVO</button>
+    <button class="px-4 py-1.5 font-orbitron text-[0.5rem] font-bold tracking-[0.12em] rounded cursor-pointer transition-all duration-200" ng-class="ui.tab==='historial' ? 'bg-dm-red text-dm-bg' : 'text-dm-muted2 bg-transparent hover:text-dm-text'" ng-click="ui.tab='historial'">HISTORIAL</button>
   </div>
   <div class="flex items-center gap-2 font-mono text-[0.65rem] text-dm-muted2">
     <div class="w-2 h-2 rounded-full transition-all duration-300" ng-class="enVivo ? 'bg-dm-green shadow-[0_0_8px_#00e676] animate-pulse' : 'bg-dm-muted'"></div>
@@ -97,7 +97,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 </header>
 
 <!-- ══ EN VIVO ══════════════════════════════════════════════════ -->
-<div class="p-3 md:p-4 lg:p-5 fade-in" ng-show="tab==='live'">
+<div class="p-3 md:p-4 lg:p-5" ng-show="ui.tab==='live'">
   <div class="dgrid-live">
 
     <!-- Velocímetro -->
@@ -220,7 +220,8 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 </div>
 
 <!-- ══ HISTORIAL ═════════════════════════════════════════════════ -->
-<div class="p-3 md:p-4 lg:p-5 fade-in" ng-show="tab==='historial'" ng-controller="HistCtrl">
+<div class="p-3 md:p-4 lg:p-5" ng-show="ui.tab==='historial'">
+<div ng-controller="HistCtrl">
   <div class="flex flex-col gap-4">
 
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" ng-if="stats">
@@ -439,23 +440,24 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 
     <div class="flex justify-between items-center px-5 md:px-6 py-4">
       <div class="font-mono text-[0.6rem] text-dm-muted">ID: {{ modalRun._id }}</div>
-      <button class="px-4 py-2.5 rounded-lg font-orbitron text-[0.55rem] font-bold tracking-[0.1em] cursor-pointer transition-all duration-200 bg-transparent border border-dm-border2 text-dm-muted2 hover:border-dm-red hover:text-dm-red" ng-click="cerrarModal()">CERRAR</button>
-    </div>
-  </div>
-</div>
-</div>
+<button class="px-4 py-2.5 rounded-lg font-orbitron text-[0.55rem] font-bold tracking-[0.1em] cursor-pointer transition-all duration-200 bg-transparent border border-dm-border2 text-dm-muted2 hover:border-dm-red hover:text-dm-red" ng-click="cerrarModal()">CERRAR</button>
+     </div>
+   </div>
+ </div>
+ </div>
+ </div>
 
-<!-- ── Scripts ── -->
+ <!-- ── Scripts ── -->
 <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 var app = angular.module('telemetriaApp', []);
 
-app.service('Sock', function($rootScope) {
+app.service('Sock', function($rootScope, $timeout) {
   var s = io();
   this.on = function(ev, cb) {
-    s.on(ev, function(d) { $rootScope.$apply(function() { cb(d); }); });
+    s.on(ev, function(d) { $timeout(function() { cb(d); }); });
   };
 });
 
@@ -494,7 +496,7 @@ app.directive('velocimetro', function() {
 });
 
 app.controller('AppCtrl', function($scope, $interval, Sock, Api) {
-  $scope.tab     = 'live';
+  $scope.ui      = { tab: 'live' };
   $scope.vel     = 0; $scope.maxVel = 0;
   $scope.accel   = 0; $scope.maxAccel = 0;
   $scope.dist    = 0; $scope.trap = null;
