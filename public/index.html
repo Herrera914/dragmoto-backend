@@ -294,8 +294,8 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
             <td class="px-3.5 py-3 font-rajdhani text-sm font-bold text-dm-text">{{ r.vehicle_name||'—' }}</td>
             <td class="px-3.5 py-3 font-orbitron text-sm font-bold text-dm-orange">{{ r.top_speed|number:1 }} km/h</td>
             <td class="px-3.5 py-3 font-mono text-[0.65rem] text-dm-green leading-relaxed max-w-[200px] whitespace-normal">
-              <span ng-repeat="t in parseSpeedTests(r)">&nbsp;{{ t.range }}: <b>{{ t.timeSeconds ? (t.timeSeconds|number:2)+'s' : '—' }}</b>&nbsp;</span>
-              <span ng-if="parseSpeedTests(r).length === 0" class="text-dm-muted">—</span>
+              <span ng-if="r.custom_speed_results && r.custom_speed_results !== '[]'" class="text-dm-green text-xs">✓ tests configurados</span>
+              <span ng-if="!r.custom_speed_results || r.custom_speed_results === '[]'" class="text-dm-muted">—</span>
             </td>
             <td ng-class="{'text-dm-orange': r.hundred_meters}" class="px-3.5 py-3 font-mono text-xs">
               {{ r.hundred_meters ? (r.hundred_meters|number:2)+'s' : '—' }}
