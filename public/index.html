@@ -290,11 +290,16 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
 
     <div class="panel pspr">
       <div class="plbl">TIEMPOS DE SPRINT</div>
-      <div class="srow" ng-class="{ done: sp.z30  }"><span class="slbl">0 → 30 km/h</span>  <span class="sval">{{ sp.z30  ? (sp.z30  |number:2)+'s':'—' }}</span></div>
-      <div class="srow" ng-class="{ done: sp.z60  }"><span class="slbl">0 → 60 km/h</span>  <span class="sval">{{ sp.z60  ? (sp.z60  |number:2)+'s':'—' }}</span></div>
-      <div class="srow" ng-class="{ done: sp.z80  }"><span class="slbl">0 → 80 km/h</span>  <span class="sval">{{ sp.z80  ? (sp.z80  |number:2)+'s':'—' }}</span></div>
-      <div class="srow" ng-class="{ done: sp.z100 }"><span class="slbl">0 → 100 km/h</span> <span class="sval">{{ sp.z100 ? (sp.z100 |number:2)+'s':'—' }}</span></div>
-      <div class="srow" ng-class="{ done: sp.z120 }"><span class="slbl">0 → 120 km/h</span> <span class="sval">{{ sp.z120 ? (sp.z120 |number:2)+'s':'—' }}</span></div>
+      <div ng-if="liveSpeedTests.length > 0">
+        <div class="srow" ng-class="{ done: t.timeSeconds }" ng-repeat="t in liveSpeedTests"><span class="slbl">{{ t.range }} km/h</span> <span class="sval">{{ t.timeSeconds ? (t.timeSeconds|number:2)+'s':'—' }}</span></div>
+      </div>
+      <div ng-if="liveSpeedTests.length === 0">
+        <div class="srow" ng-class="{ done: sp.z30  }"><span class="slbl">0 → 30 km/h</span>  <span class="sval">{{ sp.z30  ? (sp.z30  |number:2)+'s':'—' }}</span></div>
+        <div class="srow" ng-class="{ done: sp.z60  }"><span class="slbl">0 → 60 km/h</span>  <span class="sval">{{ sp.z60  ? (sp.z60  |number:2)+'s':'—' }}</span></div>
+        <div class="srow" ng-class="{ done: sp.z80  }"><span class="slbl">0 → 80 km/h</span>  <span class="sval">{{ sp.z80  ? (sp.z80  |number:2)+'s':'—' }}</span></div>
+        <div class="srow" ng-class="{ done: sp.z100 }"><span class="slbl">0 → 100 km/h</span> <span class="sval">{{ sp.z100 ? (sp.z100 |number:2)+'s':'—' }}</span></div>
+        <div class="srow" ng-class="{ done: sp.z120 }"><span class="slbl">0 → 120 km/h</span> <span class="sval">{{ sp.z120 ? (sp.z120 |number:2)+'s':'—' }}</span></div>
+      </div>
       <div class="srow" ng-class="{ done: sp.em  }"><span class="slbl">⅛ milla (201m)</span><span class="sval">{{ sp.em  ? (sp.em  |number:2)+'s':'—' }}</span></div>
       <div class="srow" ng-class="{ done: sp.qm  }"><span class="slbl">¼ milla (402m)</span><span class="sval">{{ sp.qm  ? (sp.qm  |number:2)+'s':'—' }}</span></div>
     </div>
@@ -334,18 +339,13 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
 
     <!-- Scroll horizontal para tabla completa -->
     <div class="twrap" ng-if="!loading && !err && runs.length" style="overflow-x:auto">
-      <table style="min-width:1200px">
+      <table style="min-width:900px">
         <thead>
           <tr>
             <th ng-click="o('created_at')">FECHA</th>
             <th ng-click="o('vehicle_name')">VEHÍCULO</th>
             <th ng-click="o('top_speed')">TOP SPEED</th>
-            <th ng-click="o('zero_to_30')"  title="0 a 30 km/h">0→30</th>
-            <th ng-click="o('zero_to_60')"  title="0 a 60 km/h">0→60</th>
-            <th ng-click="o('zero_to_80')"  title="0 a 80 km/h">0→80</th>
-            <th ng-click="o('zero_to_100')" title="0 a 100 km/h">0→100</th>
-            <th ng-click="o('zero_to_120')" title="0 a 120 km/h">0→120</th>
-            <th ng-click="o('sixty_to_hundred')" title="60 a 100 km/h">60→100</th>
+            <th>VELOCIDAD</th>
             <th ng-click="o('hundred_meters')" title="100 metros">100 M</th>
             <th ng-click="o('eighth_mile')"  title="1/8 de milla (201m)">⅛ MI</th>
             <th ng-click="o('quarter_mile')" title="1/4 de milla (402m)">¼ MI</th>
@@ -364,29 +364,9 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
             <td class="tdveh">{{ r.vehicle_name||'—' }}</td>
             <td class="tdtop">{{ r.top_speed|number:1 }} km/h</td>
 
-            <!-- Velocidad 0→30 -->
-            <td ng-class="{'cg': r.zero_to_30}">
-              {{ r.zero_to_30 ? (r.zero_to_30|number:2)+'s' : '—' }}
-            </td>
-            <!-- Velocidad 0→60 -->
-            <td ng-class="{'cg': r.zero_to_60}">
-              {{ r.zero_to_60 ? (r.zero_to_60|number:2)+'s' : '—' }}
-            </td>
-            <!-- Velocidad 0→80 -->
-            <td ng-class="{'cg': r.zero_to_80}">
-              {{ r.zero_to_80 ? (r.zero_to_80|number:2)+'s' : '—' }}
-            </td>
-            <!-- Velocidad 0→100 -->
-            <td ng-class="{'cg': r.zero_to_100}">
-              {{ r.zero_to_100 ? (r.zero_to_100|number:2)+'s' : '—' }}
-            </td>
-            <!-- Velocidad 0→120 -->
-            <td ng-class="{'cg': r.zero_to_120}">
-              {{ r.zero_to_120 ? (r.zero_to_120|number:2)+'s' : '—' }}
-            </td>
-            <!-- 60→100 -->
-            <td ng-class="{'cg': r.sixty_to_hundred}">
-              {{ r.sixty_to_hundred ? (r.sixty_to_hundred|number:2)+'s' : '—' }}
+            <td style="font-family:var(--mon);font-size:0.65rem;line-height:1.5;max-width:200px;white-space:normal;color:var(--green)">
+              <span ng-repeat="t in parseSpeedTests(r)">&nbsp;{{ t.range }}: <b>{{ t.timeSeconds ? (t.timeSeconds|number:2)+'s' : '—' }}</b>&nbsp;</span>
+              <span ng-if="parseSpeedTests(r).length === 0" style="color:var(--muted)">—</span>
             </td>
             <!-- 100 metros -->
             <td ng-class="{'co': r.hundred_meters}">
@@ -603,6 +583,7 @@ app.controller('AppCtrl', function($scope, $interval, Sock, Api) {
   $scope.enVivo  = false; $scope.ultimoRun = null;
   $scope.stMsg   = 'Esperando conexión...';
   $scope.sp      = { z30:null,z60:null,z80:null,z100:null,z120:null,qm:null,em:null };
+  $scope.liveSpeedTests = [];
 
   var cdata = [], chart = null;
 
@@ -652,10 +633,16 @@ app.controller('AppCtrl', function($scope, $interval, Sock, Api) {
     $scope.sp = { z30:r.zero_to_30, z60:r.zero_to_60, z80:r.zero_to_80,
                   z100:r.zero_to_100, z120:r.zero_to_120, qm:r.quarter_mile, em:r.eighth_mile };
 
+    try {
+      var custom = JSON.parse(r.custom_speed_results || '[]');
+      $scope.liveSpeedTests = Array.isArray(custom) ? custom : [];
+    } catch(e) { $scope.liveSpeedTests = []; }
+
     $interval(function() {
       $scope.vel=0; $scope.accel=0; $scope.dist=0;
       $scope.maxVel=0; $scope.maxAccel=0; $scope.trap=null;
       $scope.sp={ z30:null,z60:null,z80:null,z100:null,z120:null,qm:null,em:null };
+      $scope.liveSpeedTests=[];
       cdata=[];
       if (chart){ chart.data.labels=[]; chart.data.datasets[0].data=[]; chart.update(); }
       $scope.stMsg='Esperando próximo run...';
@@ -697,6 +684,21 @@ app.controller('HistCtrl', function($scope, Api) {
   $scope.o = function(c) {
     $scope.desc = ($scope.col === c) ? !$scope.desc : true;
     $scope.col  = c;
+  };
+
+  $scope.parseSpeedTests = function(r) {
+    try {
+      var custom = JSON.parse(r.custom_speed_results || '[]');
+      if (Array.isArray(custom) && custom.length > 0) return custom;
+    } catch(e) {}
+    var tests = [];
+    if (r.zero_to_30)        tests.push({range:'0→30', timeSeconds:r.zero_to_30});
+    if (r.zero_to_60)        tests.push({range:'0→60', timeSeconds:r.zero_to_60});
+    if (r.zero_to_80)        tests.push({range:'0→80', timeSeconds:r.zero_to_80});
+    if (r.zero_to_100)       tests.push({range:'0→100', timeSeconds:r.zero_to_100});
+    if (r.zero_to_120)       tests.push({range:'0→120', timeSeconds:r.zero_to_120});
+    if (r.sixty_to_hundred)  tests.push({range:'60→100', timeSeconds:r.sixty_to_hundred});
+    return tests;
   };
 
   $scope.del = function(r) {
@@ -750,35 +752,34 @@ app.controller('HistCtrl', function($scope, Api) {
       }
     }
 
-    add('0→30',   r.zero_to_30,       'rgba(0,230,118,0.7)');
-    add('0→60',   r.zero_to_60,       'rgba(0,230,118,0.7)');
-    add('0→80',   r.zero_to_80,       'rgba(0,230,118,0.7)');
-    add('0→100',  r.zero_to_100,      'rgba(0,230,118,0.7)');
-    add('0→120',  r.zero_to_120,      'rgba(0,230,118,0.7)');
-    add('60→100', r.sixty_to_hundred, 'rgba(0,180,255,0.7)');
+    var hasCustomSpeed = $scope.modalCustomSpeed && $scope.modalCustomSpeed.length > 0;
+
+    if (hasCustomSpeed) {
+      ($scope.modalCustomSpeed || []).forEach(function(t) {
+        if (t.timeSeconds) {
+          add(t.range + ' km/h', t.timeSeconds, 'rgba(0,230,118,0.7)');
+        }
+      });
+    } else {
+      add('0→30',   r.zero_to_30,       'rgba(0,230,118,0.7)');
+      add('0→60',   r.zero_to_60,       'rgba(0,230,118,0.7)');
+      add('0→80',   r.zero_to_80,       'rgba(0,230,118,0.7)');
+      add('0→100',  r.zero_to_100,      'rgba(0,230,118,0.7)');
+      add('0→120',  r.zero_to_120,      'rgba(0,230,118,0.7)');
+      add('60→100', r.sixty_to_hundred, 'rgba(0,180,255,0.7)');
+    }
+
     add('100 m',  r.hundred_meters,   'rgba(255,107,0,0.7)');
     add('⅛ mi',   r.eighth_mile,      'rgba(255,107,0,0.7)');
     add('¼ mi',   r.quarter_mile,     'rgba(255,107,0,0.7)');
     add('1 km',   r.one_km,           'rgba(255,107,0,0.7)');
 
-    // Tests custom de velocidad
-    ($scope.modalCustomSpeed || []).forEach(function(t) {
-      if (t.timeSeconds) {
-        labels.push(t.range + ' km/h');
-        valores.push(parseFloat(t.timeSeconds));
-        colores.push('rgba(180,100,255,0.7)');
-      }
-    });
-
-    // Tests custom de distancia
     ($scope.modalCustomDist || []).forEach(function(t) {
       if (t.timeSeconds) {
         var lbl = t.targetMeters >= 1000
           ? (t.targetMeters / 1000).toFixed(2) + 'km'
           : t.targetMeters + 'm';
-        labels.push(lbl);
-        valores.push(parseFloat(t.timeSeconds));
-        colores.push('rgba(255,220,0,0.7)');
+        add(lbl, t.timeSeconds, 'rgba(255,220,0,0.7)');
       }
     });
 
