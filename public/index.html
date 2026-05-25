@@ -72,6 +72,9 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 
 .fade-in{animation:fadeIn 0.4s ease both}
 
+[ng\:cloak],[ng-cloak],.ng-hide{display:none!important}
+.ng-hide-animate{transition:none!important}
+
 #speedChart{max-height:140px}
 </style>
 </head>
@@ -336,12 +339,11 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       </table>
     </div>
 
-    <div class="py-14 text-center font-mono text-sm text-dm-muted" ng-if="!loading && !err && runs.length===0">
-      No hay runs registrados aún.
-    </div>
+<div class="py-14 text-center font-mono text-sm text-dm-muted" ng-if="!loading && !err && runs.length===0">
+       No hay runs registrados aún.
+     </div>
 
-  </div>
-</div>
+   </div>
 
 <!-- ══ MODAL DETALLE RUN ══════════════════════════════════════════ -->
 <div class="fixed inset-0 bg-black/85 backdrop-blur-sm z-[1000] flex items-center justify-center p-4 md:p-5" ng-show="modalRun" ng-click="cerrarModal()">
@@ -440,6 +442,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       <button class="px-4 py-2.5 rounded-lg font-orbitron text-[0.55rem] font-bold tracking-[0.1em] cursor-pointer transition-all duration-200 bg-transparent border border-dm-border2 text-dm-muted2 hover:border-dm-red hover:text-dm-red" ng-click="cerrarModal()">CERRAR</button>
     </div>
   </div>
+</div>
 </div>
 
 <!-- ── Scripts ── -->
