@@ -571,7 +571,7 @@ app.controller('AppCtrl', function($scope, $interval, Sock, Api) {
   $scope.pctAccel = function() { return Math.min(($scope.accel/10)*100, 100); };
 });
 
-app.controller('HistCtrl', function($scope, Api) {
+app.controller('HistCtrl', function($scope, $timeout, Api) {
   $scope.runs     = [];
   $scope.stats    = null;
   $scope.loading  = true;
@@ -637,7 +637,8 @@ app.controller('HistCtrl', function($scope, Api) {
       $scope.modalCustomDist = JSON.parse(r.custom_distance_results || '[]') || [];
     } catch(e) { $scope.modalCustomDist = []; }
 
-    $scope.$apply(function() { $scope.modalRun = r; }); setTimeout(function() { dibujarGraficaModal(r); }, 150);
+    $scope.modalRun = r;
+    $timeout(function() { dibujarGraficaModal($scope.modalRun); }, 50);
   };
 
   $scope.cerrarModal = function() {
