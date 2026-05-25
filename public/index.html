@@ -1,12 +1,4 @@
 <!DOCTYPE html>
-<!--
-  DragMoto Telemetría — Dashboard AngularJS
-  ─────────────────────────────────────────
-  Módulo:        telemetriaApp (ng-app)
-  Controladores: AppCtrl (live), HistorialCtrl
-  Servicios:     SocketService, RunService ($http)
-  Directivas:    <velocimetro>
--->
 <html ng-app="telemetriaApp" lang="es">
 <head>
 <meta charset="UTF-8">
@@ -14,515 +6,446 @@
 <title>DragMoto — Telemetría</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-<style>
-:root {
-  --bg:      #060608;
-  --s1:      #0c0c10;
-  --s2:      #111116;
-  --border:  #1a1a24;
-  --border2: #252535;
-  --orange:  #ff6b00;
-  --orange2: #ff9500;
-  --blue:    #00b4ff;
-  --green:   #00e676;
-  --red:     #ff1744;
-  --yellow:  #ffd600;
-  --text:    #e8eaf0;
-  --muted:   #454560;
-  --muted2:  #6b6b8a;
-  --orb: 'Orbitron', monospace;
-  --raj: 'Rajdhani', sans-serif;
-  --mon: 'Share Tech Mono', monospace;
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        dm: {
+          bg: '#060608',
+          s1: '#0a0a0f',
+          s2: '#0e0e16',
+          s3: '#14141e',
+          s4: '#1a1a28',
+          border: '#1e1e32',
+          border2: '#2a2a40',
+          border3: '#353550',
+          red: '#f43f5e',
+          redGlow: '#ff1744',
+          redDeep: '#e11d48',
+          orange: '#ff6b00',
+          orange2: '#ff9500',
+          blue: '#00b4ff',
+          blueSoft: '#38bdf8',
+          green: '#00e676',
+          greenSoft: '#4ade80',
+          yellow: '#ffd600',
+          text: '#e8eaf0',
+          muted: '#454560',
+          muted2: '#6b6b8a',
+          muted3: '#8888a0',
+        }
+      },
+      fontFamily: {
+        orbitron: ['Orbitron', 'monospace'],
+        rajdhani: ['Rajdhani', 'sans-serif'],
+        mono: ['"Share Tech Mono"', 'monospace'],
+      }
+    }
+  }
 }
+</script>
+<style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html{height:100%}
-body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--raj);overflow-x:hidden}
-body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 4px);pointer-events:none;z-index:9999}
-body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(255,107,0,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,107,0,0.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+body{min-height:100%;overflow-x:hidden}
 
-/* Header */
-.hdr{position:sticky;top:0;z-index:500;display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:58px;background:rgba(6,6,8,0.96);border-bottom:1px solid var(--border);backdrop-filter:blur(16px)}
-.logo{display:flex;align-items:center;gap:10px}
-.logo-box{width:34px;height:34px;border:2px solid var(--orange);display:grid;place-items:center;font-family:var(--orb);font-size:0.6rem;font-weight:900;color:var(--orange);clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);background:rgba(255,107,0,0.07);letter-spacing:0.02em}
-.logo-name{font-family:var(--orb);font-size:1rem;font-weight:900;letter-spacing:0.18em;color:var(--text)}
-.logo-name span{color:var(--orange)}
-.nav{display:flex;gap:3px;background:var(--s1);border:1px solid var(--border);border-radius:4px;padding:3px}
-.ntab{padding:6px 18px;font-family:var(--orb);font-size:0.55rem;font-weight:700;letter-spacing:0.12em;color:var(--muted2);cursor:pointer;border-radius:3px;transition:all 0.2s;border:none;background:transparent}
-.ntab:hover{color:var(--text)}
-.ntab.on{background:var(--orange);color:#000}
-.hdr-st{display:flex;align-items:center;gap:8px;font-family:var(--mon);font-size:0.65rem;color:var(--muted2)}
-.sdot{width:8px;height:8px;border-radius:50%;background:var(--muted);transition:all 0.3s}
-.sdot.live{background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 1.4s ease-in-out infinite}
-@keyframes blink{50%{opacity:0.25}}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.05) 2px,rgba(0,0,0,0.05) 4px);pointer-events:none;z-index:9999}
 
-/* Layout */
-.body{position:relative;z-index:1;padding:20px 24px}
+.dgrid-live{display:grid;gap:1rem}
+@media(min-width:1024px){.dgrid-live{grid-template-columns:280px 1fr 220px;grid-template-rows:auto auto}}
+@media(min-width:1024px){.pvel-lg{grid-column:1;grid-row:1/3}.pspr-lg{grid-column:3;grid-row:1/3}.pchart-lg{grid-column:2;grid-row:2}.pmets-lg{grid-column:2;grid-row:1}}
 
-/* Panel */
-.panel{background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:18px;position:relative;overflow:hidden}
-.panel::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--orange),transparent);opacity:0.3}
-.plbl{font-family:var(--orb);font-size:0.5rem;font-weight:700;letter-spacing:0.2em;color:var(--muted);margin-bottom:14px}
-
-/* Dashboard grid */
-.dgrid{display:grid;grid-template-columns:280px 1fr 220px;grid-template-rows:auto auto;gap:14px}
-
-/* Velocímetro */
-.pvel{grid-column:1;grid-row:1/3;display:flex;flex-direction:column;align-items:center;gap:16px}
-.vring{position:relative;width:200px;height:200px}
-.vsvg{width:100%;height:100%;transform:rotate(-135deg)}
-.vtrack{fill:none;stroke:var(--border2);stroke-width:14;stroke-linecap:round}
+.vtrack{fill:none;stroke:#2a2a40;stroke-width:14;stroke-linecap:round}
 .varc{fill:none;stroke-width:14;stroke-linecap:round;stroke-dasharray:471;stroke-dashoffset:471;transition:stroke-dashoffset 0.3s ease,stroke 0.3s;filter:drop-shadow(0 0 8px currentColor)}
-.vcenter{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.vnum{font-family:var(--orb);font-size:3.4rem;font-weight:900;line-height:1;color:var(--orange);text-shadow:0 0 28px rgba(255,107,0,0.5);transition:color 0.3s;font-variant-numeric:tabular-nums}
-.vunit{font-family:var(--mon);font-size:0.7rem;color:var(--muted2);letter-spacing:0.1em;margin-top:3px}
-.vmax{font-family:var(--mon);font-size:0.65rem;color:var(--muted2);text-align:center}
-.vmax b{color:var(--orange2)}
-.vminis{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.mcard{background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:10px;text-align:center}
-.mlbl{font-family:var(--orb);font-size:0.42rem;font-weight:700;letter-spacing:0.14em;color:var(--muted);margin-bottom:4px}
-.mval{font-family:var(--orb);font-size:1rem;font-weight:900;color:var(--text)}
 
-/* Métricas */
-.pmets{grid-column:2;grid-row:1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-content:start}
-.mc{background:var(--s2);border:1px solid var(--border);border-radius:6px;padding:16px;position:relative}
-.mc::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;border-radius:0 0 6px 6px;opacity:0;transition:opacity 0.3s}
-.mc.on::after{opacity:1}
-.mc-o::after{background:var(--orange)}
-.mc-b::after{background:var(--blue)}
-.mc-g::after{background:var(--green)}
-.mclbl{font-family:var(--orb);font-size:0.47rem;font-weight:700;letter-spacing:0.18em;color:var(--muted);margin-bottom:10px}
-.mcv{font-family:var(--orb);font-size:2rem;font-weight:900;line-height:1;transition:color 0.3s;font-variant-numeric:tabular-nums}
-.co{color:var(--orange);text-shadow:0 0 16px rgba(255,107,0,0.4)}
-.cb{color:var(--blue);text-shadow:0 0 16px rgba(0,180,255,0.4)}
-.cg{color:var(--green);text-shadow:0 0 16px rgba(0,230,118,0.4)}
-.mcu{font-family:var(--mon);font-size:0.6rem;color:var(--muted2);margin-top:3px}
-.mcs{font-family:var(--mon);font-size:0.58rem;color:var(--muted2);margin-top:7px}
-.abg{width:100%;height:4px;background:var(--border2);border-radius:2px;margin-top:8px;overflow:hidden}
-.afl{height:100%;background:linear-gradient(90deg,var(--blue),var(--orange));border-radius:2px;transition:width 0.3s ease;box-shadow:0 0 6px var(--blue)}
-.hitos{display:flex;flex-direction:column;gap:5px;margin-top:8px}
-.hito{display:flex;align-items:center;justify-content:space-between;padding:4px 8px;border:1px solid var(--border);border-radius:3px;font-family:var(--mon);font-size:0.58rem;color:var(--muted);transition:all 0.3s}
-.hito.done{border-color:var(--green);color:var(--green);background:rgba(0,230,118,0.05)}
-
-/* Sprints */
-.pspr{grid-column:3;grid-row:1/3;display:flex;flex-direction:column;gap:7px}
-.srow{display:flex;align-items:center;justify-content:space-between;padding:9px 11px;background:var(--s2);border:1px solid var(--border);border-radius:4px;transition:all 0.3s;position:relative;overflow:hidden}
-.srow::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--muted);transition:background 0.3s}
-.srow.done{border-color:rgba(255,107,0,0.3);background:rgba(255,107,0,0.04)}
-.srow.done::before{background:var(--orange)}
-.slbl{font-family:var(--raj);font-size:0.72rem;font-weight:600;color:var(--muted2);letter-spacing:0.04em}
-.srow.done .slbl{color:var(--text)}
-.sval{font-family:var(--orb);font-size:0.8rem;font-weight:700;color:var(--muted)}
-.srow.done .sval{color:var(--orange)}
-
-/* Gráfica */
-.pchart{grid-column:2;grid-row:2}
-#speedChart{max-height:130px}
-
-/* Historial */
-.hwrap{display:flex;flex-direction:column;gap:18px}
-.sband{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.spill{background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:16px;position:relative;overflow:hidden}
-.spill::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
-.spo::before{background:var(--orange)}
-.spb::before{background:var(--blue)}
-.spg::before{background:var(--green)}
-.spy::before{background:var(--yellow)}
-.splbl{font-family:var(--orb);font-size:0.48rem;font-weight:700;letter-spacing:0.18em;color:var(--muted);margin-bottom:8px}
-.spval{font-family:var(--orb);font-size:1.7rem;font-weight:900;color:var(--text)}
-.spo .spval{color:var(--orange)}
-.spb .spval{color:var(--blue)}
-.spg .spval{color:var(--green)}
-.spy .spval{color:var(--yellow)}
-.hctrl{display:flex;gap:10px;align-items:center}
-.sinput{flex:1;background:var(--s1);border:1px solid var(--border2);border-radius:4px;padding:10px 14px;color:var(--text);font-family:var(--mon);font-size:0.78rem;outline:none;transition:border-color 0.2s}
-.sinput::placeholder{color:var(--muted)}
-.sinput:focus{border-color:var(--orange)}
-.btn{padding:10px 18px;border-radius:4px;font-family:var(--orb);font-size:0.55rem;font-weight:700;letter-spacing:0.1em;cursor:pointer;border:none;transition:all 0.2s}
-.btng{background:transparent;border:1px solid var(--border2);color:var(--muted2)}
-.btng:hover{border-color:var(--orange);color:var(--orange)}
-.twrap{background:var(--s1);border:1px solid var(--border);border-radius:6px;overflow:hidden}
-table{width:100%;border-collapse:collapse}
-thead tr{background:var(--s2);border-bottom:1px solid var(--border2)}
-th{padding:11px 14px;font-family:var(--orb);font-size:0.48rem;font-weight:700;letter-spacing:0.14em;color:var(--muted);text-align:left;cursor:pointer;user-select:none;white-space:nowrap}
-th:hover{color:var(--orange)}
-td{padding:12px 14px;font-family:var(--mon);font-size:0.72rem;border-bottom:1px solid var(--border);color:var(--text)}
-tbody tr:last-child td{border-bottom:none}
-tbody tr:hover td{background:rgba(255,107,0,0.025)}
-.tdtop{font-family:var(--orb);font-size:0.82rem;font-weight:700;color:var(--orange)}
-.tdveh{font-weight:700;font-family:var(--raj);font-size:0.88rem}
-.badge{display:inline-block;padding:3px 9px;border-radius:2px;font-family:var(--orb);font-size:0.48rem;font-weight:700;letter-spacing:0.08em}
-.bg{background:rgba(0,230,118,0.1);color:var(--green);border:1px solid rgba(0,230,118,0.3)}
-.bo{background:rgba(255,107,0,0.1);color:var(--orange);border:1px solid rgba(255,107,0,0.3)}
-.br{background:rgba(255,23,68,0.1);color:var(--red);border:1px solid rgba(255,23,68,0.3)}
-.bm{background:var(--s2);color:var(--muted2);border:1px solid var(--border)}
-.bdel{background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 9px;font-family:var(--orb);font-size:0.5rem;cursor:pointer;transition:all 0.2s}
-.bdel:hover{border-color:var(--red);color:var(--red)}
-.empty{padding:56px;text-align:center;font-family:var(--mon);font-size:0.78rem;color:var(--muted)}
-.err{padding:40px;text-align:center;font-family:var(--mon);font-size:0.78rem;color:var(--red)}
-.spwrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:56px}
-.spinner{width:32px;height:32px;border:3px solid var(--border2);border-top-color:var(--orange);border-radius:50%;animation:spin 0.7s linear infinite}
+@keyframes pulse-dot{0%,100%{opacity:1;box-shadow:0 0 8px #00e676}50%{opacity:0.3;box-shadow:0 0 4px #00e676}}
 @keyframes spin{to{transform:rotate(360deg)}}
-.fin{animation:fadeIn 0.35s ease both}
-@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-@media(max-width:1100px){
-  .dgrid{grid-template-columns:1fr 1fr}
-  .pvel{grid-column:1/3}
-  .pspr{grid-column:1/3;grid-row:auto;display:grid;grid-template-columns:repeat(2,1fr)}
-  .pchart{grid-column:1/3}
-  .sband{grid-template-columns:repeat(2,1fr)}
-}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
-/* ── Modal de detalle ─────────────────────────────────────────── */
-.bver{background:rgba(255,107,0,0.12);border:1px solid rgba(255,107,0,0.4);border-radius:3px;color:var(--orange);padding:3px 9px;font-family:var(--orb);font-size:0.5rem;font-weight:700;cursor:pointer;letter-spacing:0.08em;transition:all 0.2s}
-.bver:hover{background:var(--orange);color:#000}
+.glow-red{text-shadow:0 0 20px rgba(244,63,94,0.5)}
+.glow-orange{text-shadow:0 0 16px rgba(255,107,0,0.4)}
+.glow-blue{text-shadow:0 0 16px rgba(0,180,255,0.4)}
+.glow-green{text-shadow:0 0 16px rgba(0,230,118,0.4)}
+.glow-yellow{text-shadow:0 0 16px rgba(255,214,0,0.4)}
 
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
-.modal-box{background:var(--s1);border:1px solid var(--border2);border-radius:10px;width:100%;max-width:860px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:0}
-.modal-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:20px 24px 16px;border-bottom:1px solid var(--border)}
-.modal-title{font-family:var(--orb);font-size:1.1rem;font-weight:900;color:var(--text);letter-spacing:0.08em}
-.modal-sub{font-family:var(--mon);font-size:0.65rem;color:var(--muted2);margin-top:4px}
-.modal-close{background:transparent;border:1px solid var(--border2);border-radius:4px;color:var(--muted2);padding:6px 10px;font-size:0.9rem;cursor:pointer;transition:all 0.2s;flex-shrink:0}
-.modal-close:hover{border-color:var(--red);color:var(--red)}
+.fade-in{animation:fadeIn 0.4s ease both}
 
-.modal-hero{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border)}
-.hero-item{background:var(--s2);padding:16px;text-align:center}
-.hero-lbl{font-family:var(--orb);font-size:0.45rem;font-weight:700;letter-spacing:0.18em;color:var(--muted);margin-bottom:8px}
-.hero-val{font-family:var(--orb);font-size:1.8rem;font-weight:900;line-height:1}
-.hero-unit{font-family:var(--mon);font-size:0.6rem;color:var(--muted2);margin-top:4px}
+[ng\:cloak],[ng-cloak],.ng-hide{display:none!important}
+.ng-hide-animate{transition:none!important}
 
-.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid var(--border)}
-.modal-section{padding:20px 24px;border-right:1px solid var(--border)}
-.modal-section:last-child{border-right:none}
-.msec-title{font-family:var(--orb);font-size:0.55rem;font-weight:700;letter-spacing:0.16em;color:var(--muted);margin-bottom:12px}
-.msec-rows{display:flex;flex-direction:column;gap:6px}
-.mrow{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;transition:all 0.2s}
-.mrow-on{border-color:rgba(0,230,118,0.35);background:rgba(0,230,118,0.04)}
-.mrow-on-o{border-color:rgba(255,107,0,0.35);background:rgba(255,107,0,0.04)}
-.mrow-lbl{font-family:var(--raj);font-size:0.78rem;font-weight:600;color:var(--muted2)}
-.mrow-on .mrow-lbl{color:var(--text)}
-.mrow-on-o .mrow-lbl{color:var(--text)}
-.mrow-val{font-family:var(--orb);font-size:0.85rem;font-weight:700;color:var(--muted)}
-.mrow-on .mrow-val{color:var(--green)}
-.mrow-on-o .mrow-val{color:var(--orange)}
-
-.modal-chart-wrap{padding:20px 24px;border-bottom:1px solid var(--border)}
-.modal-footer{display:flex;justify-content:space-between;align-items:center;padding:16px 24px}
-
-@media(max-width:700px){
-  .modal-hero{grid-template-columns:repeat(3,1fr)}
-  .modal-grid{grid-template-columns:1fr}
-  .modal-section{border-right:none;border-bottom:1px solid var(--border)}
-}
+#speedChart{max-height:140px}
 </style>
 </head>
 
-<body ng-controller="AppCtrl">
+<body ng-controller="AppCtrl" class="bg-dm-bg text-dm-text font-rajdhani min-h-screen">
 
-<header class="hdr">
-  <div class="logo">
-    <div class="logo-box">DM</div>
-    <div class="logo-name">DRAG<span>MOTO</span></div>
+<header class="sticky top-0 z-[500] flex items-center justify-between px-4 md:px-7 h-14 bg-dm-bg/95 backdrop-blur-xl border-b border-dm-border">
+  <div class="flex items-center gap-2.5">
+    <div class="w-8 h-8 border-2 border-dm-red grid place-items-center font-orbitron text-[0.55rem] font-black text-dm-red tracking-wider" style="clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);background:rgba(244,63,94,0.08)">DM</div>
+    <div class="font-orbitron text-sm font-black tracking-[0.18em]">DRAG<span class="text-dm-red">MOTO</span></div>
   </div>
-  <div class="nav">
-    <button class="ntab" ng-class="{ on: tab==='live' }"      ng-click="tab='live'">EN VIVO</button>
-    <button class="ntab" ng-class="{ on: tab==='historial' }" ng-click="tab='historial'">HISTORIAL</button>
+  <div class="flex gap-0.5 bg-dm-s1 border border-dm-border rounded-md p-0.5">
+    <button class="px-4 py-1.5 font-orbitron text-[0.5rem] font-bold tracking-[0.12em] rounded cursor-pointer transition-all duration-200" ng-class="tab==='live' ? 'bg-dm-red text-dm-bg' : 'text-dm-muted2 bg-transparent hover:text-dm-text'" ng-click="tab='live'">EN VIVO</button>
+    <button class="px-4 py-1.5 font-orbitron text-[0.5rem] font-bold tracking-[0.12em] rounded cursor-pointer transition-all duration-200" ng-class="tab==='historial' ? 'bg-dm-red text-dm-bg' : 'text-dm-muted2 bg-transparent hover:text-dm-text'" ng-click="tab='historial'">HISTORIAL</button>
   </div>
-  <div class="hdr-st">
-    <div class="sdot" ng-class="{ live: enVivo }"></div>
+  <div class="flex items-center gap-2 font-mono text-[0.65rem] text-dm-muted2">
+    <div class="w-2 h-2 rounded-full transition-all duration-300" ng-class="enVivo ? 'bg-dm-green shadow-[0_0_8px_#00e676] animate-pulse' : 'bg-dm-muted'"></div>
     <span>{{ stMsg }}</span>
   </div>
 </header>
 
-<!-- ══ EN VIVO ════════════════════════════════════════════════ -->
-<div class="body fin" ng-show="tab==='live'">
-  <div class="dgrid">
+<!-- ══ EN VIVO ══════════════════════════════════════════════════ -->
+<div class="p-3 md:p-4 lg:p-5" ng-show="tab==='live'">
+  <div class="dgrid-live">
 
-    <div class="panel pvel">
-      <div class="plbl">VELOCIDAD</div>
+    <!-- Velocímetro -->
+    <div class="pvel-lg bg-dm-s2 border border-dm-border rounded-xl p-4 md:p-5 flex flex-col items-center gap-3 relative overflow-hidden">
+      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-dm-red/40 to-transparent"></div>
+      <div class="font-orbitron text-[0.45rem] font-bold tracking-[0.2em] text-dm-muted">VELOCIDAD</div>
       <velocimetro vel="vel" maxv="maxVel"></velocimetro>
-      <div class="vmax">MÁX <b>{{ maxVel | number:1 }}</b> km/h</div>
-      <div class="vminis">
-        <div class="mcard">
-          <div class="mlbl">TRAP ¼ MI</div>
-          <div class="mval" style="color:var(--orange2)">
+      <div class="font-mono text-[0.65rem] text-dm-muted2 text-center">MÁX <b class="text-dm-orange2">{{ maxVel | number:1 }}</b> km/h</div>
+      <div class="w-full grid grid-cols-2 gap-2">
+        <div class="bg-dm-s3 border border-dm-border rounded-lg p-2.5 text-center">
+          <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.14em] text-dm-muted mb-1">TRAP ¼ MI</div>
+          <div class="font-orbitron text-lg font-black" style="color:var(--orange2)">
             <span ng-if="trap">{{ trap | number:1 }}</span>
-            <span ng-if="!trap" style="color:var(--muted)">—</span>
+            <span ng-if="!trap" class="text-dm-muted">—</span>
           </div>
         </div>
-        <div class="mcard">
-          <div class="mlbl">DISTANCIA</div>
-          <div class="mval" style="color:var(--blue)">{{ dist | number:0 }}<span style="font-size:0.55rem;color:var(--muted2)"> m</span></div>
+        <div class="bg-dm-s3 border border-dm-border rounded-lg p-2.5 text-center">
+          <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.14em] text-dm-muted mb-1">DISTANCIA</div>
+          <div class="font-orbitron text-lg font-black text-dm-blue">{{ dist | number:0 }}<span class="text-[0.5rem] text-dm-muted2 ml-0.5">m</span></div>
         </div>
       </div>
     </div>
 
-    <div class="pmets">
-      <div class="mc mc-b" ng-class="{ on: accel>0 }">
-        <div class="mclbl">ACELERACIÓN</div>
-        <div class="mcv cb">{{ accel | number:2 }}</div>
-        <div class="mcu">m/s²</div>
-        <div class="abg"><div class="afl" ng-style="{ width: pctAccel()+'%' }"></div></div>
-        <div class="mcs">PICO: {{ maxAccel | number:2 }} m/s²</div>
+    <!-- Métricas -->
+    <div class="pmets-lg grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden transition-all duration-300 hover:border-dm-blue/40" ng-class="{ 'border-dm-blue/50 shadow-[0_0_15px_rgba(0,180,255,0.1)]': accel>0 }">
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-dm-blue transition-opacity duration-300" ng-class="accel>0 ? 'opacity-100' : 'opacity-0'"></div>
+        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.18em] text-dm-muted mb-2.5">ACELERACIÓN</div>
+        <div class="font-orbitron text-3xl font-black text-dm-blue glow-blue leading-none tabular-nums">{{ accel | number:2 }}</div>
+        <div class="font-mono text-[0.6rem] text-dm-muted2 mt-1">m/s²</div>
+        <div class="w-full h-1 bg-dm-border2 rounded-full mt-2.5 overflow-hidden">
+          <div class="h-full bg-gradient-to-r from-dm-blue to-dm-orange rounded-full transition-all duration-300 shadow-[0_0_6px_rgba(0,180,255,0.5)]" ng-style="{ width: pctAccel()+'%' }"></div>
+        </div>
+        <div class="font-mono text-[0.55rem] text-dm-muted2 mt-2">PICO: {{ maxAccel | number:2 }} m/s²</div>
       </div>
 
-      <div class="mc mc-g" ng-class="{ on: dist>0 }">
-        <div class="mclbl">RECORRIDO</div>
-        <div class="mcv cg">{{ dist | number:0 }}</div>
-        <div class="mcu">metros</div>
-        <div class="hitos">
-          <div class="hito" ng-class="{ done: dist>=100  }"><span>100 m</span>      <span>{{ dist>=100  ? '✓':'○' }}</span></div>
-          <div class="hito" ng-class="{ done: dist>=201  }"><span>⅛ milla</span>    <span>{{ dist>=201  ? '✓':'○' }}</span></div>
-          <div class="hito" ng-class="{ done: dist>=402  }"><span>¼ milla</span>    <span>{{ dist>=402  ? '✓':'○' }}</span></div>
+      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden transition-all duration-300 hover:border-dm-green/40" ng-class="{ 'border-dm-green/50 shadow-[0_0_15px_rgba(0,230,118,0.1)]': dist>0 }">
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-dm-green transition-opacity duration-300" ng-class="dist>0 ? 'opacity-100' : 'opacity-0'"></div>
+        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.18em] text-dm-muted mb-2.5">RECORRIDO</div>
+        <div class="font-orbitron text-3xl font-black text-dm-green glow-green leading-none tabular-nums">{{ dist | number:0 }}</div>
+        <div class="font-mono text-[0.6rem] text-dm-muted2 mt-1">metros</div>
+        <div class="flex flex-col gap-1 mt-2">
+          <div class="flex items-center justify-between px-2.5 py-1 border rounded text-xs font-mono transition-all duration-200" ng-class="dist>=100 ? 'border-dm-green/40 text-dm-green bg-dm-green/5' : 'border-dm-border text-dm-muted'"><span>100 m</span><span>{{ dist>=100 ? '✓':'○' }}</span></div>
+          <div class="flex items-center justify-between px-2.5 py-1 border rounded text-xs font-mono transition-all duration-200" ng-class="dist>=201 ? 'border-dm-green/40 text-dm-green bg-dm-green/5' : 'border-dm-border text-dm-muted'"><span>⅛ milla</span><span>{{ dist>=201 ? '✓':'○' }}</span></div>
+          <div class="flex items-center justify-between px-2.5 py-1 border rounded text-xs font-mono transition-all duration-200" ng-class="dist>=402 ? 'border-dm-green/40 text-dm-green bg-dm-green/5' : 'border-dm-border text-dm-muted'"><span>¼ milla</span><span>{{ dist>=402 ? '✓':'○' }}</span></div>
         </div>
       </div>
 
-      <div class="mc mc-o" ng-class="{ on: ultimoRun }">
-        <div class="mclbl">ÚLTIMO RUN</div>
+      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden transition-all duration-300 hover:border-dm-orange/40" ng-class="ultimoRun ? 'border-dm-orange/50 shadow-[0_0_15px_rgba(255,107,0,0.1)]' : ''">
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-dm-orange transition-opacity duration-300" ng-class="ultimoRun ? 'opacity-100' : 'opacity-0'"></div>
+        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.18em] text-dm-muted mb-2.5">ÚLTIMO RUN</div>
         <div ng-if="ultimoRun">
-          <div class="mcv co">{{ ultimoRun.top_speed | number:1 }}</div>
-          <div class="mcu">km/h top</div>
-          <div class="mcs">{{ ultimoRun.vehicle_name }}</div>
-          <div class="mcs" style="margin-top:4px">0→100: {{ ultimoRun.zero_to_100 ? (ultimoRun.zero_to_100|number:2)+'s' : '—' }}</div>
+          <div class="font-orbitron text-2xl font-black text-dm-orange glow-orange leading-none tabular-nums">{{ ultimoRun.top_speed | number:1 }}</div>
+          <div class="font-mono text-[0.6rem] text-dm-muted2 mt-1">km/h top</div>
+          <div class="font-mono text-[0.55rem] text-dm-muted2 mt-1.5">{{ ultimoRun.vehicle_name }}</div>
+          <div class="font-mono text-[0.55rem] text-dm-muted2 mt-0.5">0→100: {{ ultimoRun.zero_to_100 ? (ultimoRun.zero_to_100|number:2)+'s' : '—' }}</div>
         </div>
-        <div ng-if="!ultimoRun" style="color:var(--muted);font-family:var(--mon);font-size:0.68rem;margin-top:10px">Esperando primer run...</div>
+        <div ng-if="!ultimoRun" class="text-dm-muted font-mono text-xs mt-2">Esperando primer run...</div>
       </div>
     </div>
 
-    <div class="panel pspr">
-      <div class="plbl">TIEMPOS DE SPRINT</div>
+    <!-- Sprint Times -->
+    <div class="pspr-lg bg-dm-s2 border border-dm-border rounded-xl p-4 md:p-5 flex flex-col gap-2 relative overflow-hidden">
+      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-dm-red/40 to-transparent"></div>
+      <div class="font-orbitron text-[0.45rem] font-bold tracking-[0.2em] text-dm-muted mb-1">TIEMPOS DE SPRINT</div>
       <div ng-if="liveSpeedTests.length > 0">
-        <div class="srow" ng-class="{ done: t.timeSeconds }" ng-repeat="t in liveSpeedTests"><span class="slbl">{{ t.range }} km/h</span> <span class="sval">{{ t.timeSeconds ? (t.timeSeconds|number:2)+'s':'—' }}</span></div>
+        <div class="flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-all duration-300 relative overflow-hidden" ng-class="t.timeSeconds ? 'border-dm-orange/30 bg-dm-orange/5' : ''" ng-repeat="t in liveSpeedTests" style="margin-bottom:0.35rem">
+          <div class="absolute left-0 top-0 bottom-0 w-0.5 transition-colors duration-300" ng-class="t.timeSeconds ? 'bg-dm-red' : 'bg-dm-muted'"></div>
+          <span class="font-rajdhani text-xs font-semibold" ng-class="t.timeSeconds ? 'text-dm-text' : 'text-dm-muted2'">{{ t.range }} km/h</span>
+          <span class="font-orbitron text-sm font-bold" ng-class="t.timeSeconds ? 'text-dm-red' : 'text-dm-muted'">{{ t.timeSeconds ? (t.timeSeconds|number:2)+'s':'—' }}</span>
+        </div>
       </div>
       <div ng-if="liveSpeedTests.length === 0">
-        <div class="srow" ng-class="{ done: sp.z30  }"><span class="slbl">0 → 30 km/h</span>  <span class="sval">{{ sp.z30  ? (sp.z30  |number:2)+'s':'—' }}</span></div>
-        <div class="srow" ng-class="{ done: sp.z60  }"><span class="slbl">0 → 60 km/h</span>  <span class="sval">{{ sp.z60  ? (sp.z60  |number:2)+'s':'—' }}</span></div>
-        <div class="srow" ng-class="{ done: sp.z80  }"><span class="slbl">0 → 80 km/h</span>  <span class="sval">{{ sp.z80  ? (sp.z80  |number:2)+'s':'—' }}</span></div>
-        <div class="srow" ng-class="{ done: sp.z100 }"><span class="slbl">0 → 100 km/h</span> <span class="sval">{{ sp.z100 ? (sp.z100 |number:2)+'s':'—' }}</span></div>
-        <div class="srow" ng-class="{ done: sp.z120 }"><span class="slbl">0 → 120 km/h</span> <span class="sval">{{ sp.z120 ? (sp.z120 |number:2)+'s':'—' }}</span></div>
+        <div class="flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-all duration-300 relative overflow-hidden" ng-class="sp.z30 ? 'border-dm-red/30 bg-dm-red/5' : ''" style="margin-bottom:0.35rem">
+          <div class="absolute left-0 top-0 bottom-0 w-0.5 transition-colors duration-300" ng-class="sp.z30 ? 'bg-dm-red' : 'bg-dm-muted'"></div>
+          <span class="font-rajdhani text-xs font-semibold" ng-class="sp.z30 ? 'text-dm-text' : 'text-dm-muted2'">0 → 30 km/h</span>
+          <span class="font-orbitron text-sm font-bold" ng-class="sp.z30 ? 'text-dm-red' : 'text-dm-muted'">{{ sp.z30 ? (sp.z30|number:2)+'s':'—' }}</span>
+        </div>
+        <div class="flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-all duration-300 relative overflow-hidden" ng-class="sp.z60 ? 'border-dm-red/30 bg-dm-red/5' : ''" style="margin-bottom:0.35rem">
+          <div class="absolute left-0 top-0 bottom-0 w-0.5 transition-colors duration-300" ng-class="sp.z60 ? 'bg-dm-red' : 'bg-dm-muted'"></div>
+          <span class="font-rajdhani text-xs font-semibold" ng-class="sp.z60 ? 'text-dm-text' : 'text-dm-muted2'">0 → 60 km/h</span>
+          <span class="font-orbitron text-sm font-bold" ng-class="sp.z60 ? 'text-dm-red' : 'text-dm-muted'">{{ sp.z60 ? (sp.z60|number:2)+'s':'—' }}</span>
+        </div>
+        <div class="flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-all duration-300 relative overflow-hidden" ng-class="sp.z80 ? 'border-dm-red/30 bg-dm-red/5' : ''" style="margin-bottom:0.35rem">
+          <div class="absolute left-0 top-0 bottom-0 w-0.5 transition-colors duration-300" ng-class="sp.z80 ? 'bg-dm-red' : 'bg-dm-muted'"></div>
+          <span class="font-rajdhani text-xs font-semibold" ng-class="sp.z80 ? 'text-dm-text' : 'text-dm-muted2'">0 → 80 km/h</span>
+          <span class="font-orbitron text-sm font-bold" ng-class="sp.z80 ? 'text-dm-red' : 'text-dm-muted'">{{ sp.z80 ? (sp.z80|number:2)+'s':'—' }}</span>
+        </div>
+        <div class="flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-all duration-300 relative overflow-hidden" ng-class="sp.z100 ? 'border-dm-red/30 bg-dm-red/5' : ''" style="margin-bottom:0.35rem">
+          <div class="absolute left-0 top-0 bottom-0 w-0.5 transition-colors duration-300" ng-class="sp.z100 ? 'bg-dm-red' : 'bg-dm-muted'"></div>
+          <span class="font-rajdhani text-xs font-semibold" ng-class="sp.z100 ? 'text-dm-text' : 'text-dm-muted2'">0 → 100 km/h</span>
+          <span class="font-orbitron text-sm font-bold" ng-class="sp.z100 ? 'text-dm-red' : 'text-dm-muted'">{{ sp.z100 ? (sp.z100|number:2)+'s':'—' }}</span>
+        </div>
+        <div class="flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-all duration-300 relative overflow-hidden" ng-class="sp.z120 ? 'border-dm-red/30 bg-dm-red/5' : ''" style="margin-bottom:0.35rem">
+          <div class="absolute left-0 top-0 bottom-0 w-0.5 transition-colors duration-300" ng-class="sp.z120 ? 'bg-dm-red' : 'bg-dm-muted'"></div>
+          <span class="font-rajdhani text-xs font-semibold" ng-class="sp.z120 ? 'text-dm-text' : 'text-dm-muted2'">0 → 120 km/h</span>
+          <span class="font-orbitron text-sm font-bold" ng-class="sp.z120 ? 'text-dm-red' : 'text-dm-muted'">{{ sp.z120 ? (sp.z120|number:2)+'s':'—' }}</span>
+        </div>
       </div>
-      <div class="srow" ng-class="{ done: sp.em  }"><span class="slbl">⅛ milla (201m)</span><span class="sval">{{ sp.em  ? (sp.em  |number:2)+'s':'—' }}</span></div>
-      <div class="srow" ng-class="{ done: sp.qm  }"><span class="slbl">¼ milla (402m)</span><span class="sval">{{ sp.qm  ? (sp.qm  |number:2)+'s':'—' }}</span></div>
+      <div class="flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-all duration-300 relative overflow-hidden" ng-class="sp.em ? 'border-dm-red/30 bg-dm-red/5' : ''" style="margin-bottom:0.35rem">
+        <div class="absolute left-0 top-0 bottom-0 w-0.5 transition-colors duration-300" ng-class="sp.em ? 'bg-dm-red' : 'bg-dm-muted'"></div>
+        <span class="font-rajdhani text-xs font-semibold" ng-class="sp.em ? 'text-dm-text' : 'text-dm-muted2'">⅛ milla (201m)</span>
+        <span class="font-orbitron text-sm font-bold" ng-class="sp.em ? 'text-dm-red' : 'text-dm-muted'">{{ sp.em ? (sp.em|number:2)+'s':'—' }}</span>
+      </div>
+      <div class="flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-all duration-300 relative overflow-hidden" ng-class="sp.qm ? 'border-dm-red/30 bg-dm-red/5' : ''">
+        <div class="absolute left-0 top-0 bottom-0 w-0.5 transition-colors duration-300" ng-class="sp.qm ? 'bg-dm-red' : 'bg-dm-muted'"></div>
+        <span class="font-rajdhani text-xs font-semibold" ng-class="sp.qm ? 'text-dm-text' : 'text-dm-muted2'">¼ milla (402m)</span>
+        <span class="font-orbitron text-sm font-bold" ng-class="sp.qm ? 'text-dm-red' : 'text-dm-muted'">{{ sp.qm ? (sp.qm|number:2)+'s':'—' }}</span>
+      </div>
     </div>
 
-    <div class="panel pchart">
-      <div class="plbl">CURVA DE VELOCIDAD — ÚLTIMOS 40 PUNTOS</div>
+    <!-- Chart -->
+    <div class="pchart-lg bg-dm-s2 border border-dm-border rounded-xl p-4 md:p-5 relative overflow-hidden">
+      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-dm-blue/30 to-transparent"></div>
+      <div class="font-orbitron text-[0.45rem] font-bold tracking-[0.2em] text-dm-muted mb-3">CURVA DE VELOCIDAD — ÚLTIMOS 40 PUNTOS</div>
       <canvas id="speedChart"></canvas>
     </div>
 
   </div>
 </div>
 
-<!-- ══ HISTORIAL ═════════════════════════════════════════════ -->
-<div class="body fin" ng-show="tab==='historial'" ng-controller="HistCtrl">
-  <div class="hwrap">
+<!-- ══ HISTORIAL ═════════════════════════════════════════════════ -->
+<div class="p-3 md:p-4 lg:p-5" ng-show="tab==='historial'" ng-controller="HistCtrl">
+<div class="flex flex-col gap-4">
 
-    <div class="sband" ng-if="stats" style="grid-template-columns:repeat(6,1fr)">
-      <div class="spill spo"><div class="splbl">TOTAL RUNS</div>       <div class="spval">{{ stats.totalRuns||0 }}</div></div>
-      <div class="spill spb"><div class="splbl">MEJOR TOP SPEED</div>  <div class="spval">{{ stats.bestTopSpeed     ? (stats.bestTopSpeed    |number:1)+' km/h':'—' }}</div></div>
-      <div class="spill spg"><div class="splbl">MEJOR 0→100</div>      <div class="spval">{{ stats.bestZeroTo100   ? (stats.bestZeroTo100  |number:2)+'s':'—' }}</div></div>
-      <div class="spill spy"><div class="splbl">MEJOR 100 M</div>      <div class="spval">{{ stats.bestHundredMeters? (stats.bestHundredMeters|number:2)+'s':'—' }}</div></div>
-      <div class="spill" style="border-top:2px solid var(--orange)"><div class="splbl">MEJOR ⅛ MILLA</div>  <div class="spval" style="color:var(--orange)">{{ stats.bestEighthMile  ? (stats.bestEighthMile  |number:2)+'s':'—' }}</div></div>
-      <div class="spill" style="border-top:2px solid var(--blue)">  <div class="splbl">MEJOR ¼ MILLA</div>  <div class="spval" style="color:var(--blue)">  {{ stats.bestQuarterMile? (stats.bestQuarterMile|number:2)+'s':'—' }}</div></div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" ng-if="stats">
+      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-red"></div>
+        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">TOTAL RUNS</div>
+        <div class="font-orbitron text-2xl font-black text-dm-red glow-red tabular-nums">{{ stats.totalRuns||0 }}</div>
+      </div>
+      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-blue"></div>
+        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR TOP SPEED</div>
+        <div class="font-orbitron text-2xl font-black text-dm-blue glow-blue tabular-nums">{{ stats.bestTopSpeed ? (stats.bestTopSpeed|number:1)+'':'—' }}<span ng-if="stats.bestTopSpeed" class="text-xs text-dm-muted2 ml-1">km/h</span></div>
+      </div>
+      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-green"></div>
+        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR 0→100</div>
+        <div class="font-orbitron text-2xl font-black text-dm-green glow-green tabular-nums">{{ stats.bestZeroTo100 ? (stats.bestZeroTo100|number:2)+'s':'—' }}</div>
+      </div>
+      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-yellow"></div>
+        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR 100 M</div>
+        <div class="font-orbitron text-2xl font-black text-dm-yellow glow-yellow tabular-nums">{{ stats.bestHundredMeters ? (stats.bestHundredMeters|number:2)+'s':'—' }}</div>
+      </div>
+      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-orange"></div>
+        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR ⅛ MILLA</div>
+        <div class="font-orbitron text-2xl font-black text-dm-orange glow-orange tabular-nums">{{ stats.bestEighthMile ? (stats.bestEighthMile|number:2)+'s':'—' }}</div>
+      </div>
+      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-blueSoft"></div>
+        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR ¼ MILLA</div>
+        <div class="font-orbitron text-2xl font-black text-dm-blueSoft tabular-nums">{{ stats.bestQuarterMile ? (stats.bestQuarterMile|number:2)+'s':'—' }}</div>
+      </div>
     </div>
 
-    <div class="hctrl">
-      <input class="sinput" type="text" ng-model="q" placeholder="🔍  Buscar por vehículo...">
-      <button class="btn btng" ng-click="load()">↺ RECARGAR</button>
+    <div class="flex gap-3 items-center">
+      <input class="flex-1 bg-dm-s1 border border-dm-border2 rounded-lg px-4 py-2.5 text-dm-text font-mono text-sm outline-none transition-colors duration-200 focus:border-dm-red placeholder-dm-muted" type="text" ng-model="q" placeholder="🔍 Buscar por vehículo...">
+      <button class="px-4 py-2.5 rounded-lg font-orbitron text-[0.55rem] font-bold tracking-[0.1em] cursor-pointer transition-all duration-200 bg-transparent border border-dm-border2 text-dm-muted2 hover:border-dm-red hover:text-dm-red" ng-click="load()">↺ RECARGAR</button>
     </div>
 
-    <div class="spwrap" ng-if="loading">
-      <div class="spinner"></div>
-      <span style="font-family:var(--mon);font-size:0.72rem;color:var(--muted)">Cargando historial...</span>
+    <div class="flex flex-col items-center gap-3 py-14" ng-if="loading">
+      <div class="w-8 h-8 border-[3px] border-dm-border2 border-t-dm-red rounded-full" style="animation:spin 0.7s linear infinite"></div>
+      <span class="font-mono text-sm text-dm-muted">Cargando historial...</span>
     </div>
 
-    <div class="err" ng-if="err && !loading">⚠ {{ err }}</div>
+    <div class="py-10 text-center font-mono text-sm text-dm-red" ng-if="err && !loading">⚠ {{ err }}</div>
 
-    <!-- Scroll horizontal para tabla completa -->
-    <div class="twrap" ng-if="!loading && !err && runs.length" style="overflow-x:auto">
-      <table style="min-width:900px">
+    <div class="bg-dm-s1 border border-dm-border rounded-xl overflow-x-auto" ng-if="!loading && !err && runs.length">
+      <table class="w-full border-collapse" style="min-width:900px">
         <thead>
-          <tr>
-            <th ng-click="o('created_at')">FECHA</th>
-            <th ng-click="o('vehicle_name')">VEHÍCULO</th>
-            <th ng-click="o('top_speed')">TOP SPEED</th>
-            <th>VELOCIDAD</th>
-            <th ng-click="o('hundred_meters')" title="100 metros">100 M</th>
-            <th ng-click="o('eighth_mile')"  title="1/8 de milla (201m)">⅛ MI</th>
-            <th ng-click="o('quarter_mile')" title="1/4 de milla (402m)">¼ MI</th>
-            <th ng-click="o('one_km')"       title="1 kilómetro">1 KM</th>
-            <th ng-click="o('trap_speed_quarter')">TRAP</th>
-            <th ng-click="o('peak_acceleration')">ACEL</th>
-            <th ng-click="o('total_distance')">DIST</th>
-            <th>SALIDA</th>
-            <th>NOTAS</th>
-            <th></th>
+          <tr class="bg-dm-s3 border-b border-dm-border2">
+            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('created_at')">FECHA</th>
+            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('vehicle_name')">VEHÍCULO</th>
+            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('top_speed')">TOP SPEED</th>
+            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left whitespace-nowrap">VELOCIDAD</th>
+            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('hundred_meters')" title="100 metros">100 M</th>
+            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('eighth_mile')" title="1/8 de milla (201m)">⅛ MI</th>
+            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('quarter_mile')" title="1/4 de milla (402m)">¼ MI</th>
+            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('one_km')" title="1 kilómetro">1 KM</th>
+            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('trap_speed_quarter')">TRAP</th>
+            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('peak_acceleration')">ACEL</th>
+            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('total_distance')">DIST</th>
+            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left whitespace-nowrap">SALIDA</th>
+            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left whitespace-nowrap">NOTAS</th>
+            <th class="px-3.5 py-2.5"></th>
           </tr>
         </thead>
         <tbody>
-          <tr ng-repeat="r in runs | filter:q | orderBy:col:desc">
-            <td style="color:var(--muted2);white-space:nowrap">{{ r.created_at | date:'dd/MM/yy HH:mm' }}</td>
-            <td class="tdveh">{{ r.vehicle_name||'—' }}</td>
-            <td class="tdtop">{{ r.top_speed|number:1 }} km/h</td>
-
-            <td style="font-family:var(--mon);font-size:0.65rem;line-height:1.5;max-width:200px;white-space:normal;color:var(--green)">
+          <tr ng-repeat="r in runs | filter:q | orderBy:col:desc" class="border-b border-dm-border hover:bg-dm-red/5 transition-colors">
+            <td class="px-3.5 py-3 font-mono text-xs text-dm-muted2 whitespace-nowrap">{{ r.created_at | date:'dd/MM/yy HH:mm' }}</td>
+            <td class="px-3.5 py-3 font-rajdhani text-sm font-bold text-dm-text">{{ r.vehicle_name||'—' }}</td>
+            <td class="px-3.5 py-3 font-orbitron text-sm font-bold text-dm-orange">{{ r.top_speed|number:1 }} km/h</td>
+            <td class="px-3.5 py-3 font-mono text-[0.65rem] text-dm-green leading-relaxed max-w-[200px] whitespace-normal">
               <span ng-repeat="t in parseSpeedTests(r)">&nbsp;{{ t.range }}: <b>{{ t.timeSeconds ? (t.timeSeconds|number:2)+'s' : '—' }}</b>&nbsp;</span>
-              <span ng-if="parseSpeedTests(r).length === 0" style="color:var(--muted)">—</span>
+              <span ng-if="parseSpeedTests(r).length === 0" class="text-dm-muted">—</span>
             </td>
-            <!-- 100 metros -->
-            <td ng-class="{'co': r.hundred_meters}">
+            <td ng-class="{'text-dm-orange': r.hundred_meters}" class="px-3.5 py-3 font-mono text-xs">
               {{ r.hundred_meters ? (r.hundred_meters|number:2)+'s' : '—' }}
             </td>
-            <!-- 1/8 milla -->
-            <td ng-class="{'co': r.eighth_mile}">
+            <td ng-class="{'text-dm-orange': r.eighth_mile}" class="px-3.5 py-3 font-mono text-xs">
               {{ r.eighth_mile ? (r.eighth_mile|number:2)+'s' : '—' }}
             </td>
-            <!-- 1/4 milla -->
-            <td ng-class="{'co': r.quarter_mile}">
+            <td ng-class="{'text-dm-orange': r.quarter_mile}" class="px-3.5 py-3 font-mono text-xs">
               {{ r.quarter_mile ? (r.quarter_mile|number:2)+'s' : '—' }}
             </td>
-            <!-- 1 km -->
-            <td ng-class="{'co': r.one_km}">
+            <td ng-class="{'text-dm-orange': r.one_km}" class="px-3.5 py-3 font-mono text-xs">
               {{ r.one_km ? (r.one_km|number:2)+'s' : '—' }}
             </td>
-            <!-- Trap speed -->
-            <td style="color:var(--blue)">
+            <td class="px-3.5 py-3 font-mono text-xs text-dm-blue">
               {{ r.trap_speed_quarter ? (r.trap_speed_quarter|number:1)+' km/h' : '—' }}
             </td>
-            <!-- Aceleración pico -->
-            <td style="color:var(--blue)">
+            <td class="px-3.5 py-3 font-mono text-xs text-dm-blue">
               {{ r.peak_acceleration ? (r.peak_acceleration|number:2)+' m/s²' : '—' }}
             </td>
-            <!-- Distancia total -->
-            <td>{{ (r.total_distance/1000)|number:2 }} km</td>
-            <!-- Badge salida -->
-            <td>
-              <span class="badge" ng-class="{
-                bg: r.launch_quality==='EXCELENTE'||r.launch_quality==='BUENA',
-                bo: r.launch_quality==='REGULAR',
-                br: r.launch_quality==='POBRE',
-                bm: !r.launch_quality }">{{ r.launch_quality||'—' }}</span>
+            <td class="px-3.5 py-3 font-mono text-xs">{{ (r.total_distance/1000)|number:2 }} km</td>
+            <td class="px-3.5 py-3">
+              <span class="inline-block px-2 py-0.5 rounded font-orbitron text-[0.45rem] font-bold tracking-[0.08em]" ng-class="{
+                'bg-dm-green/10 text-dm-green border border-dm-green/30': r.launch_quality==='EXCELENTE'||r.launch_quality==='BUENA',
+                'bg-dm-orange/10 text-dm-orange border border-dm-orange/30': r.launch_quality==='REGULAR',
+                'bg-dm-redGlow/10 text-dm-redGlow border border-dm-red/30': r.launch_quality==='POBRE',
+                'bg-dm-s3 text-dm-muted2 border border-dm-border': !r.launch_quality
+              }">{{ r.launch_quality||'—' }}</span>
             </td>
-            <!-- Distancias custom (8km, 12km, etc.) guardadas en setup_notes -->
-            <td style="color:var(--muted2);font-size:0.65rem;max-width:160px;white-space:normal;line-height:1.4">
+            <td class="px-3.5 py-3 font-mono text-[0.65rem] text-dm-muted2 max-w-[160px] whitespace-normal leading-relaxed">
               <span ng-if="r.setup_notes">{{ r.setup_notes }}</span>
-              <span ng-if="!r.setup_notes" style="color:var(--muted)">—</span>
+              <span ng-if="!r.setup_notes" class="text-dm-muted">—</span>
             </td>
-            <td style="display:flex;gap:6px">
-              <button class="bver" ng-click="ver(r)">VER</button>
-              <button class="bdel" ng-click="del(r)">DEL</button>
+            <td class="px-3.5 py-3">
+              <div class="flex gap-1.5">
+                <button class="bg-dm-red/10 border border-dm-red/40 rounded text-dm-red py-0.5 px-2 font-orbitron text-[0.45rem] font-bold tracking-[0.08em] cursor-pointer transition-all duration-200 hover:bg-dm-red hover:text-dm-bg" ng-click="ver(r)">VER</button>
+                <button class="bg-transparent border border-dm-border rounded text-dm-muted py-0.5 px-2 font-orbitron text-[0.45rem] tracking-[0.08em] cursor-pointer transition-all duration-200 hover:border-dm-redGlow hover:text-dm-redGlow" ng-click="del(r)">DEL</button>
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <div class="empty" ng-if="!loading && !err && runs.length===0">
-      No hay runs registrados aún.
-    </div>
+<div class="py-14 text-center font-mono text-sm text-dm-muted" ng-if="!loading && !err && runs.length===0">
+       No hay runs registrados aún.
+     </div>
 
 
 <!-- ══ MODAL DETALLE RUN ══════════════════════════════════════════ -->
-<div class="modal-overlay" ng-show="modalRun" ng-click="cerrarModal()">
-  <div class="modal-box" ng-click="$event.stopPropagation()">
-    <div class="modal-hdr">
+<div class="fixed inset-0 bg-black/85 backdrop-blur-sm z-[1000] flex items-center justify-center p-4 md:p-5" ng-if="modalRun" ng-click="cerrarModal()">
+  <div class="bg-dm-s1 border border-dm-border2 rounded-xl w-full max-w-[860px] max-h-[90vh] overflow-y-auto flex flex-col" ng-click="$event.stopPropagation()">
+    <div class="flex justify-between items-start p-5 md:p-6 border-b border-dm-border">
       <div>
-        <div class="modal-title">{{ modalRun.vehicle_name || 'Sin vehículo' }}</div>
-        <div class="modal-sub">{{ modalRun.created_at | date:'dd/MM/yyyy HH:mm' }} · {{ modalRun.mode }}</div>
+        <div class="font-orbitron text-lg font-black text-dm-text tracking-[0.08em]">{{ modalRun.vehicle_name || 'Sin vehículo' }}</div>
+        <div class="font-mono text-[0.65rem] text-dm-muted2 mt-1">{{ modalRun.created_at | date:'dd/MM/yyyy HH:mm' }} · {{ modalRun.mode }}</div>
       </div>
-      <button class="modal-close" ng-click="modalRun=null">✕</button>
+      <button class="bg-transparent border border-dm-border2 rounded text-dm-muted2 px-2.5 py-1.5 text-lg cursor-pointer transition-all duration-200 hover:border-dm-redGlow hover:text-dm-redGlow leading-none" ng-click="modalRun=null">✕</button>
     </div>
-    <div class="modal-hero">
-      <div class="hero-item">
-        <div class="hero-lbl">TOP SPEED</div>
-        <div class="hero-val" style="color:var(--orange)">{{ modalRun.top_speed | number:1 }}</div>
-        <div class="hero-unit">km/h</div>
+
+    <div class="grid grid-cols-3 md:grid-cols-5 gap-px bg-dm-border border-b border-dm-border">
+      <div class="bg-dm-s2 p-4 text-center">
+        <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.18em] text-dm-muted mb-2">TOP SPEED</div>
+        <div class="font-orbitron text-2xl font-black text-dm-orange glow-orange leading-none">{{ modalRun.top_speed | number:1 }}</div>
+        <div class="font-mono text-[0.55rem] text-dm-muted2 mt-1.5">km/h</div>
       </div>
-      <div class="hero-item">
-        <div class="hero-lbl">DISTANCIA</div>
-        <div class="hero-val" style="color:var(--green)">{{ (modalRun.total_distance/1000) | number:2 }}</div>
-        <div class="hero-unit">km</div>
+      <div class="bg-dm-s2 p-4 text-center">
+        <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.18em] text-dm-muted mb-2">DISTANCIA</div>
+        <div class="font-orbitron text-2xl font-black text-dm-green glow-green leading-none">{{ (modalRun.total_distance/1000) | number:2 }}</div>
+        <div class="font-mono text-[0.55rem] text-dm-muted2 mt-1.5">km</div>
       </div>
-      <div class="hero-item">
-        <div class="hero-lbl">ACEL. PICO</div>
-        <div class="hero-val" style="color:var(--blue)">{{ modalRun.peak_acceleration | number:2 }}</div>
-        <div class="hero-unit">m/s²</div>
+      <div class="bg-dm-s2 p-4 text-center">
+        <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.18em] text-dm-muted mb-2">ACEL. PICO</div>
+        <div class="font-orbitron text-2xl font-black text-dm-blue glow-blue leading-none">{{ modalRun.peak_acceleration | number:2 }}</div>
+        <div class="font-mono text-[0.55rem] text-dm-muted2 mt-1.5">m/s²</div>
       </div>
-      <div class="hero-item">
-        <div class="hero-lbl">TRAP ¼ MI</div>
-        <div class="hero-val" style="color:var(--orange2)">{{ modalRun.trap_speed_quarter ? (modalRun.trap_speed_quarter|number:1) : '—' }}</div>
-        <div class="hero-unit">km/h</div>
+      <div class="bg-dm-s2 p-4 text-center">
+        <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.18em] text-dm-muted mb-2">TRAP ¼ MI</div>
+        <div class="font-orbitron text-2xl font-black text-dm-orange2 leading-none">{{ modalRun.trap_speed_quarter ? (modalRun.trap_speed_quarter|number:1) : '—' }}</div>
+        <div class="font-mono text-[0.55rem] text-dm-muted2 mt-1.5">km/h</div>
       </div>
-      <div class="hero-item">
-        <div class="hero-lbl">SALIDA</div>
-        <div class="hero-val" style="font-size:1.1rem;margin-top:6px">
-          <span class="badge" ng-class="{bg:modalRun.launch_quality==='EXCELENTE'||modalRun.launch_quality==='BUENA',bo:modalRun.launch_quality==='REGULAR',br:modalRun.launch_quality==='POBRE',bm:!modalRun.launch_quality}">{{ modalRun.launch_quality||'—' }}</span>
+      <div class="bg-dm-s2 p-4 text-center">
+        <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.18em] text-dm-muted mb-2">SALIDA</div>
+        <div class="mt-1.5">
+          <span class="inline-block px-2 py-1 rounded font-orbitron text-[0.45rem] font-bold tracking-[0.08em]" ng-class="{'bg-dm-green/10 text-dm-green border border-dm-green/30':modalRun.launch_quality==='EXCELENTE'||modalRun.launch_quality==='BUENA','bg-dm-orange/10 text-dm-orange border border-dm-orange/30':modalRun.launch_quality==='REGULAR','bg-dm-redGlow/10 text-dm-redGlow border border-dm-red/30':modalRun.launch_quality==='POBRE','bg-dm-s3 text-dm-muted2 border border-dm-border':!modalRun.launch_quality}">{{ modalRun.launch_quality||'—' }}</span>
         </div>
-        <div class="hero-unit">&nbsp;</div>
+        <div class="h-1.5">&nbsp;</div>
       </div>
     </div>
-    <div class="modal-grid">
-      <div class="modal-section">
-        <div class="msec-title">⚡ TIEMPOS DE VELOCIDAD</div>
-        <div class="msec-rows">
-          <!-- Runs nuevos: usa el JSON que tiene TODOS los tests configurados -->
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-0 border-b border-dm-border">
+      <div class="p-5 md:border-r border-dm-border">
+        <div class="font-orbitron text-[0.5rem] font-bold tracking-[0.16em] text-dm-muted mb-3">⚡ TIEMPOS DE VELOCIDAD</div>
+        <div class="flex flex-col gap-1.5">
           <div ng-if="modalCustomSpeed.length > 0">
-            <div class="mrow" ng-class="{'mrow-on': r.timeSeconds}" ng-repeat="r in modalCustomSpeed">
-              <span class="mrow-lbl">{{ r.range }} km/h</span>
-              <span class="mrow-val">{{ r.timeSeconds ? (r.timeSeconds | number:2)+"s" : "—" }}</span>
+            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="r.timeSeconds ? 'border-dm-green/40 bg-dm-green/5' : 'border-dm-border'" ng-repeat="r in modalCustomSpeed" style="margin-bottom:0.375rem">
+              <span class="font-rajdhani text-sm font-semibold" ng-class="r.timeSeconds ? 'text-dm-text' : 'text-dm-muted2'">{{ r.range }} km/h</span>
+              <span class="font-orbitron text-sm font-bold" ng-class="r.timeSeconds ? 'text-dm-green' : 'text-dm-muted'">{{ r.timeSeconds ? (r.timeSeconds | number:2)+"s" : "—" }}</span>
             </div>
           </div>
-          <!-- Runs viejos (sin JSON): usa campos fijos -->
           <div ng-if="modalCustomSpeed.length === 0">
-            <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_30}"><span class="mrow-lbl">0 → 30 km/h</span><span class="mrow-val">{{ modalRun.zero_to_30?(modalRun.zero_to_30|number:2)+"s":"—" }}</span></div>
-            <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_60}"><span class="mrow-lbl">0 → 60 km/h</span><span class="mrow-val">{{ modalRun.zero_to_60?(modalRun.zero_to_60|number:2)+"s":"—" }}</span></div>
-            <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_80}"><span class="mrow-lbl">0 → 80 km/h</span><span class="mrow-val">{{ modalRun.zero_to_80?(modalRun.zero_to_80|number:2)+"s":"—" }}</span></div>
-            <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_100}"><span class="mrow-lbl">0 → 100 km/h</span><span class="mrow-val">{{ modalRun.zero_to_100?(modalRun.zero_to_100|number:2)+"s":"—" }}</span></div>
-            <div class="mrow" ng-class="{'mrow-on':modalRun.zero_to_120}"><span class="mrow-lbl">0 → 120 km/h</span><span class="mrow-val">{{ modalRun.zero_to_120?(modalRun.zero_to_120|number:2)+"s":"—" }}</span></div>
-            <div class="mrow" ng-class="{'mrow-on':modalRun.sixty_to_hundred}"><span class="mrow-lbl">60 → 100 km/h</span><span class="mrow-val">{{ modalRun.sixty_to_hundred?(modalRun.sixty_to_hundred|number:2)+"s":"—" }}</span></div>
+            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-green/40 bg-dm-green/5':modalRun.zero_to_30}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.zero_to_30?'text-dm-text':'text-dm-muted2'">0 → 30 km/h</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.zero_to_30?'text-dm-green':'text-dm-muted'">{{ modalRun.zero_to_30?(modalRun.zero_to_30|number:2)+"s":"—" }}</span></div>
+            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-green/40 bg-dm-green/5':modalRun.zero_to_60}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.zero_to_60?'text-dm-text':'text-dm-muted2'">0 → 60 km/h</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.zero_to_60?'text-dm-green':'text-dm-muted'">{{ modalRun.zero_to_60?(modalRun.zero_to_60|number:2)+"s":"—" }}</span></div>
+            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-green/40 bg-dm-green/5':modalRun.zero_to_80}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.zero_to_80?'text-dm-text':'text-dm-muted2'">0 → 80 km/h</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.zero_to_80?'text-dm-green':'text-dm-muted'">{{ modalRun.zero_to_80?(modalRun.zero_to_80|number:2)+"s":"—" }}</span></div>
+            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-green/40 bg-dm-green/5':modalRun.zero_to_100}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.zero_to_100?'text-dm-text':'text-dm-muted2'">0 → 100 km/h</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.zero_to_100?'text-dm-green':'text-dm-muted'">{{ modalRun.zero_to_100?(modalRun.zero_to_100|number:2)+"s":"—" }}</span></div>
+            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-green/40 bg-dm-green/5':modalRun.zero_to_120}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.zero_to_120?'text-dm-text':'text-dm-muted2'">0 → 120 km/h</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.zero_to_120?'text-dm-green':'text-dm-muted'">{{ modalRun.zero_to_120?(modalRun.zero_to_120|number:2)+"s":"—" }}</span></div>
+            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-green/40 bg-dm-green/5':modalRun.sixty_to_hundred}"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.sixty_to_hundred?'text-dm-text':'text-dm-muted2'">60 → 100 km/h</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.sixty_to_hundred?'text-dm-green':'text-dm-muted'">{{ modalRun.sixty_to_hundred?(modalRun.sixty_to_hundred|number:2)+"s":"—" }}</span></div>
           </div>
         </div>
       </div>
-      <div class="modal-section">
-        <div class="msec-title">📏 TIEMPOS DE DISTANCIA</div>
-        <div class="msec-rows">
-          <!-- Runs nuevos: usa el JSON -->
+      <div class="p-5">
+        <div class="font-orbitron text-[0.5rem] font-bold tracking-[0.16em] text-dm-muted mb-3">📏 TIEMPOS DE DISTANCIA</div>
+        <div class="flex flex-col gap-1.5">
           <div ng-if="modalCustomDist.length > 0">
-            <div class="mrow" ng-class="{'mrow-on-o': r.timeSeconds}" ng-repeat="r in modalCustomDist">
-              <span class="mrow-lbl">
+            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="r.timeSeconds ? 'border-dm-orange/40 bg-dm-orange/5' : 'border-dm-border'" ng-repeat="r in modalCustomDist" style="margin-bottom:0.375rem">
+              <span class="font-rajdhani text-sm font-semibold" ng-class="r.timeSeconds ? 'text-dm-text' : 'text-dm-muted2'">
                 {{ r.targetMeters >= 1000 ? (r.targetMeters/1000 | number:2)+"km" :
                    (r.targetMeters >= 400 && r.targetMeters <= 403) ? "¼ milla" :
                    (r.targetMeters >= 200 && r.targetMeters <= 202) ? "⅛ milla" :
                    r.targetMeters+"m" }}
               </span>
-              <span class="mrow-val">{{ r.timeSeconds ? (r.timeSeconds | number:2)+"s" : "—" }}</span>
+              <span class="font-orbitron text-sm font-bold" ng-class="r.timeSeconds ? 'text-dm-orange' : 'text-dm-muted'">{{ r.timeSeconds ? (r.timeSeconds | number:2)+"s" : "—" }}</span>
             </div>
           </div>
-          <!-- Runs viejos: usa campos fijos -->
           <div ng-if="modalCustomDist.length === 0">
-            <div class="mrow" ng-class="{'mrow-on-o':modalRun.hundred_meters}"><span class="mrow-lbl">100 metros</span><span class="mrow-val">{{ modalRun.hundred_meters?(modalRun.hundred_meters|number:2)+"s":"—" }}</span></div>
-            <div class="mrow" ng-class="{'mrow-on-o':modalRun.eighth_mile}"><span class="mrow-lbl">⅛ milla (201 m)</span><span class="mrow-val">{{ modalRun.eighth_mile?(modalRun.eighth_mile|number:2)+"s":"—" }}</span></div>
-            <div class="mrow" ng-class="{'mrow-on-o':modalRun.quarter_mile}"><span class="mrow-lbl">¼ milla (402 m)</span><span class="mrow-val">{{ modalRun.quarter_mile?(modalRun.quarter_mile|number:2)+"s":"—" }}</span></div>
-            <div class="mrow" ng-class="{'mrow-on-o':modalRun.one_km}"><span class="mrow-lbl">1 kilómetro</span><span class="mrow-val">{{ modalRun.one_km?(modalRun.one_km|number:2)+"s":"—" }}</span></div>
-            <div class="mrow" ng-class="{'mrow-on-o':modalRun.trap_speed_quarter}"><span class="mrow-lbl">Trap ¼ milla</span><span class="mrow-val" style="color:var(--blue)">{{ modalRun.trap_speed_quarter?(modalRun.trap_speed_quarter|number:1)+" km/h":"—" }}</span></div>
+            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-orange/40 bg-dm-orange/5':modalRun.hundred_meters}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.hundred_meters?'text-dm-text':'text-dm-muted2'">100 metros</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.hundred_meters?'text-dm-orange':'text-dm-muted'">{{ modalRun.hundred_meters?(modalRun.hundred_meters|number:2)+"s":"—" }}</span></div>
+            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-orange/40 bg-dm-orange/5':modalRun.eighth_mile}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.eighth_mile?'text-dm-text':'text-dm-muted2'">⅛ milla (201 m)</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.eighth_mile?'text-dm-orange':'text-dm-muted'">{{ modalRun.eighth_mile?(modalRun.eighth_mile|number:2)+"s":"—" }}</span></div>
+            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-orange/40 bg-dm-orange/5':modalRun.quarter_mile}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.quarter_mile?'text-dm-text':'text-dm-muted2'">¼ milla (402 m)</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.quarter_mile?'text-dm-orange':'text-dm-muted'">{{ modalRun.quarter_mile?(modalRun.quarter_mile|number:2)+"s":"—" }}</span></div>
+            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-orange/40 bg-dm-orange/5':modalRun.one_km}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.one_km?'text-dm-text':'text-dm-muted2'">1 kilómetro</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.one_km?'text-dm-orange':'text-dm-muted'">{{ modalRun.one_km?(modalRun.one_km|number:2)+"s":"—" }}</span></div>
+            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-blue/40 bg-dm-blue/5':modalRun.trap_speed_quarter}"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.trap_speed_quarter?'text-dm-text':'text-dm-muted2'">Trap ¼ milla</span><span class="font-orbitron text-sm font-bold text-dm-blue">{{ modalRun.trap_speed_quarter?(modalRun.trap_speed_quarter|number:1)+" km/h":"—" }}</span></div>
           </div>
         </div>
       </div>
     </div>
-    <div class="modal-chart-wrap">
-      <div class="msec-title" style="margin-bottom:12px">📊 COMPARATIVA DE TIEMPOS</div>
+
+    <div class="p-5 md:p-6 border-b border-dm-border">
+      <div class="font-orbitron text-[0.5rem] font-bold tracking-[0.16em] text-dm-muted mb-3">📊 COMPARATIVA DE TIEMPOS</div>
       <canvas id="modalChart" height="90"></canvas>
-      <div style="text-align:center;font-family:var(--mon);font-size:0.58rem;color:var(--muted);margin-top:8px">Solo tiempos obtenidos en este run — barras más cortas = mejor rendimiento</div>
+      <div class="text-center font-mono text-[0.55rem] text-dm-muted mt-2">Solo tiempos obtenidos en este run — barras más cortas = mejor rendimiento</div>
     </div>
-    <div class="modal-footer">
-      <div style="font-family:var(--mon);font-size:0.62rem;color:var(--muted)">ID: {{ modalRun._id }}</div>
-      <button class="btn btng" ng-click="cerrarModal()">CERRAR</button>
-    </div>
-  </div>
+
+    <div class="flex justify-between items-center px-5 md:px-6 py-4">
+      <div class="font-mono text-[0.6rem] text-dm-muted">ID: {{ modalRun._id }}</div>
+<button class="px-4 py-2.5 rounded-lg font-orbitron text-[0.55rem] font-bold tracking-[0.1em] cursor-pointer transition-all duration-200 bg-transparent border border-dm-border2 text-dm-muted2 hover:border-dm-red hover:text-dm-red" ng-click="cerrarModal()">CERRAR</button>
 </div>
+   </div>
+ </div>
 </div>
 
-
 </div>
+
 <!-- ── Scripts ── -->
 <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
@@ -530,7 +453,6 @@ tbody tr:hover td{background:rgba(255,107,0,0.025)}
 <script>
 var app = angular.module('telemetriaApp', []);
 
-// ── Servicio Socket ───────────────────────────────────────────
 app.service('Sock', function($rootScope) {
   var s = io();
   this.on = function(ev, cb) {
@@ -538,27 +460,25 @@ app.service('Sock', function($rootScope) {
   };
 });
 
-// ── Servicio API ($http) ──────────────────────────────────────
 app.service('Api', function($http) {
   this.runs  = function() { return $http.get('/api/runs').then(function(r){return r.data;}); };
   this.stats = function() { return $http.get('/api/runs/stats').then(function(r){return r.data;}); };
   this.del   = function(id) { return $http.delete('/api/runs/'+id); };
 });
 
-// ── Directiva <velocimetro> ───────────────────────────────────
 app.directive('velocimetro', function() {
   return {
     restrict: 'E',
     scope: { vel:'=', maxv:'=' },
     template:
-      '<div class="vring">' +
-        '<svg class="vsvg" viewBox="0 0 120 120">' +
+      '<div class="relative w-[200px] h-[200px]">' +
+        '<svg class="w-full h-full" viewBox="0 0 120 120" style="transform:rotate(-135deg)">' +
           '<circle class="vtrack" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="78"/>' +
           '<circle class="varc" cx="60" cy="60" r="50" ng-style="{stroke:col(),\'stroke-dashoffset\':off()}" stroke-dasharray="314"/>' +
         '</svg>' +
-        '<div class="vcenter">' +
-          '<div class="vnum" ng-style="{color:col()}">{{ vel|number:1 }}</div>' +
-          '<div class="vunit">km/h</div>' +
+        '<div class="absolute inset-0 flex flex-col items-center justify-center">' +
+          '<div class="font-orbitron text-[3.2rem] font-black leading-none tabular-nums transition-colors duration-300" ng-style="{color:col()}">{{ vel|number:1 }}</div>' +
+          '<div class="font-mono text-[0.65rem] text-dm-muted2 tracking-[0.1em] mt-0.5">km/h</div>' +
         '</div>' +
       '</div>',
     controller: function($scope) {
@@ -574,7 +494,6 @@ app.directive('velocimetro', function() {
   };
 });
 
-// ── Controlador principal (Live) ──────────────────────────────
 app.controller('AppCtrl', function($scope, $interval, Sock, Api) {
   $scope.tab     = 'live';
   $scope.vel     = 0; $scope.maxVel = 0;
@@ -593,7 +512,7 @@ app.controller('AppCtrl', function($scope, $interval, Sock, Api) {
     chart = new Chart(el, {
       type: 'line',
       data: { labels:[], datasets:[{
-        data:[], borderColor:'#ff6b00', backgroundColor:'rgba(255,107,0,0.06)',
+        data:[], borderColor:'#f43f5e', backgroundColor:'rgba(244,63,94,0.06)',
         borderWidth:2, pointRadius:0, tension:0.4, fill:true
       }]},
       options: {
@@ -652,7 +571,6 @@ app.controller('AppCtrl', function($scope, $interval, Sock, Api) {
   $scope.pctAccel = function() { return Math.min(($scope.accel/10)*100, 100); };
 });
 
-// ── Controlador Historial ─────────────────────────────────────
 app.controller('HistCtrl', function($scope, Api) {
   $scope.runs     = [];
   $scope.stats    = null;
@@ -662,7 +580,6 @@ app.controller('HistCtrl', function($scope, Api) {
   $scope.col      = 'created_at';
   $scope.desc     = true;
 
-  // Variables del modal — inicializadas aquí para evitar undefined
   $scope.modalRun         = null;
   $scope.modalCustomSpeed = [];
   $scope.modalCustomDist  = [];
@@ -711,11 +628,7 @@ app.controller('HistCtrl', function($scope, Api) {
       .catch(function() { alert('No se pudo eliminar'); });
   };
 
-  // ── Modal VER ─────────────────────────────────────────────────
   $scope.ver = function(r) {
-    // Parsear JSON una sola vez al abrir — nunca en el template
-    // Si se parsea en ng-repeat, JSON.parse devuelve nuevo array
-    // en cada digest → infinite loop → modal no abre
     try {
       $scope.modalCustomSpeed = JSON.parse(r.custom_speed_results || '[]') || [];
     } catch(e) { $scope.modalCustomSpeed = []; }
@@ -724,10 +637,7 @@ app.controller('HistCtrl', function($scope, Api) {
       $scope.modalCustomDist = JSON.parse(r.custom_distance_results || '[]') || [];
     } catch(e) { $scope.modalCustomDist = []; }
 
-    $scope.modalRun = r;
-
-    // Dibujar gráfica después de que Angular renderice el canvas
-    setTimeout(function() { dibujarGraficaModal(r); }, 200);
+    $scope.$apply(function() { $scope.modalRun = r; }); setTimeout(function() { dibujarGraficaModal(r); }, 150);
   };
 
   $scope.cerrarModal = function() {
@@ -769,8 +679,8 @@ app.controller('HistCtrl', function($scope, Api) {
       add('60→100', r.sixty_to_hundred, 'rgba(0,180,255,0.7)');
     }
 
-    add('100 m',  r.hundred_meters,   'rgba(255,107,0,0.7)');
-    add('⅛ mi',   r.eighth_mile,      'rgba(255,107,0,0.7)');
+    add('100 m',  r.hundred_meters,   'rgba(244,63,94,0.7)');
+    add('⅛ mi',   r.eighth_mile,      'rgba(244,63,94,0.7)');
     add('¼ mi',   r.quarter_mile,     'rgba(255,107,0,0.7)');
     add('1 km',   r.one_km,           'rgba(255,107,0,0.7)');
 
@@ -779,7 +689,7 @@ app.controller('HistCtrl', function($scope, Api) {
         var lbl = t.targetMeters >= 1000
           ? (t.targetMeters / 1000).toFixed(2) + 'km'
           : t.targetMeters + 'm';
-        add(lbl, t.timeSeconds, 'rgba(255,220,0,0.7)');
+        add(lbl, t.timeSeconds, 'rgba(255,214,0,0.7)');
       }
     });
 
