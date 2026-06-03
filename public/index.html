@@ -119,6 +119,41 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
           <div class="font-orbitron text-lg font-black text-dm-blue">{{ dist | number:0 }}<span class="text-[0.5rem] text-dm-muted2 ml-0.5">m</span></div>
         </div>
       </div>
+
+      <!-- Indicador conexión moto -->
+      <div class="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-300"
+           ng-class="motoConectada ? 'border-dm-green/40 bg-dm-green/5' : 'border-dm-border bg-dm-s3'">
+        <div class="w-2 h-2 rounded-full flex-shrink-0 transition-all duration-300"
+             ng-class="motoConectada ? 'bg-dm-green shadow-[0_0_6px_#00e676] animate-pulse' : 'bg-dm-muted'"></div>
+        <span class="font-mono text-[0.6rem]"
+              ng-class="motoConectada ? 'text-dm-green' : 'text-dm-muted2'">
+          {{ motoConectada ? 'Moto conectada' : 'Moto desconectada' }}
+        </span>
+      </div>
+
+      <!-- Botón PREPARAR MOTO -->
+      <button class="w-full py-3 rounded-lg font-orbitron text-sm font-black tracking-[0.12em] cursor-pointer transition-all duration-200 border"
+              ng-class="{
+                'bg-dm-green/90 border-dm-green text-dm-bg hover:bg-dm-green':   prepSt === '' && motoConectada,
+                'bg-dm-orange/80 border-dm-orange text-dm-bg cursor-wait':        prepSt === 'sending',
+                'bg-dm-green border-dm-green text-dm-bg':                          prepSt === 'ok',
+                'bg-dm-red/80 border-dm-red text-white':                           prepSt === 'error',
+                'bg-dm-s3 border-dm-border text-dm-muted cursor-not-allowed opacity-50': !motoConectada && prepSt === ''
+              }"
+              ng-click="preparar()"
+              ng-disabled="!motoConectada || prepSt === 'sending'">
+        <span ng-if="prepSt === ''">⚡ PREPARAR MOTO</span>
+        <span ng-if="prepSt === 'sending'">ENVIANDO...</span>
+        <span ng-if="prepSt === 'ok'">✓ LISTO</span>
+        <span ng-if="prepSt === 'error'">✕ ERROR</span>
+      </button>
+
+      <!-- Feedback -->
+      <div class="font-mono text-[0.6rem] text-center transition-all duration-200"
+           ng-if="prepMsg && prepSt !== 'sending'"
+           ng-class="prepSt === 'ok' ? 'text-dm-green' : 'text-dm-red'">
+        {{ prepMsg }}
+      </div>
     </div>
 
     <!-- Métricas -->
@@ -458,6 +493,7 @@ app.service('Sock', function($rootScope) {
   this.on = function(ev, cb) {
     s.on(ev, function(d) { $rootScope.$apply(function() { cb(d); }); });
   };
+  this.emit = function(ev, d) { s.emit(ev, d); };
 });
 
 app.service('Api', function($http) {
@@ -503,6 +539,36 @@ app.controller('AppCtrl', function($scope, $interval, Sock, Api) {
   $scope.stMsg   = 'Esperando conexión...';
   $scope.sp      = { z30:null,z60:null,z80:null,z100:null,z120:null,qm:null,em:null };
   $scope.liveSpeedTests = [];
+
+  $scope.motoConectada  = false;
+  $scope.prepSt         = '';   // '' | 'sending' | 'ok' | 'error'
+  $scope.prepMsg        = '';
+
+  Sock.on('moto_status', function(d) { $scope.motoConectada = !!d.conectada; });
+
+  Sock.on('prepare_ok', function() {
+    $scope.prepSt  = 'ok';
+    $scope.prepMsg = '✓ Moto preparada';
+    $interval(function() { $scope.prepSt = ''; $scope.prepMsg = ''; }, 3000, 1);
+  });
+
+  Sock.on('prepare_error', function(d) {
+    $scope.prepSt  = 'error';
+    $scope.prepMsg = (d && d.mensaje) || 'Error: moto no conectada';
+    $interval(function() { $scope.prepSt = ''; $scope.prepMsg = ''; }, 3000, 1);
+  });
+
+  $scope.preparar = function() {
+    if (!$scope.motoConectada || $scope.prepSt === 'sending') return;
+    $scope.prepSt  = 'sending';
+    $scope.prepMsg = 'Enviando...';
+    Sock.emit('web_trigger_prepare');
+  };
+
+  // Verificar estado inicial de la moto
+  fetch('/api/telemetry/status').then(function(r){return r.json();}).then(function(d){
+    $scope.$apply(function(){ $scope.motoConectada = !!d.moto_conectada; });
+  }).catch(function(){});
 
   var cdata = [], chart = null;
 
