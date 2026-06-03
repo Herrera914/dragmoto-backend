@@ -134,14 +134,13 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       <!-- Botón PREPARAR MOTO -->
       <button class="w-full py-3 rounded-lg font-orbitron text-sm font-black tracking-[0.12em] cursor-pointer transition-all duration-200 border"
               ng-class="{
-                'bg-dm-green/90 border-dm-green text-dm-bg hover:bg-dm-green':   prepSt === '' && motoConectada,
-                'bg-dm-orange/80 border-dm-orange text-dm-bg cursor-wait':        prepSt === 'sending',
-                'bg-dm-green border-dm-green text-dm-bg':                          prepSt === 'ok',
-                'bg-dm-red/80 border-dm-red text-white':                           prepSt === 'error',
-                'bg-dm-s3 border-dm-border text-dm-muted cursor-not-allowed opacity-50': !motoConectada && prepSt === ''
+                'bg-dm-green/90 border-dm-green text-dm-bg hover:bg-dm-green': prepSt === '',
+                'bg-dm-orange/80 border-dm-orange text-dm-bg cursor-wait':     prepSt === 'sending',
+                'bg-dm-green border-dm-green text-dm-bg':                       prepSt === 'ok',
+                'bg-dm-red/80 border-dm-red text-white':                        prepSt === 'error'
               }"
               ng-click="preparar()"
-              ng-disabled="!motoConectada || prepSt === 'sending'">
+              ng-disabled="prepSt === 'sending'">
         <span ng-if="prepSt === ''">⚡ PREPARAR MOTO</span>
         <span ng-if="prepSt === 'sending'">ENVIANDO...</span>
         <span ng-if="prepSt === 'ok'">✓ LISTO</span>
@@ -559,7 +558,7 @@ app.controller('AppCtrl', function($scope, $interval, Sock, Api) {
   });
 
   $scope.preparar = function() {
-    if (!$scope.motoConectada || $scope.prepSt === 'sending') return;
+    if ($scope.prepSt === 'sending') return;
     $scope.prepSt  = 'sending';
     $scope.prepMsg = 'Enviando...';
     Sock.emit('web_trigger_prepare');
