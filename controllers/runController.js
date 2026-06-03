@@ -99,12 +99,14 @@ const getStats = async (req, res) => {
             { $match: { valid_run: true } },
             {
                 $group: {
-                    _id:             null,
-                    totalRuns:       { $sum: 1 },
-                    bestTopSpeed:    { $max: '$top_speed' },
-                    bestZeroTo100:   { $min: '$zero_to_100' },
-                    bestQuarterMile: { $min: '$quarter_mile' },
-                    avgTopSpeed:     { $avg: '$top_speed' }
+                    _id:                null,
+                    totalRuns:          { $sum: 1 },
+                    bestTopSpeed:       { $max: '$top_speed' },
+                    bestZeroTo100:      { $min: '$zero_to_100' },
+                    bestHundredMeters:  { $min: '$hundred_meters' },
+                    bestEighthMile:     { $min: '$eighth_mile' },
+                    bestQuarterMile:    { $min: '$quarter_mile' },
+                    avgTopSpeed:        { $avg: '$top_speed' }
                 }
             }
         ]);
