@@ -28,6 +28,11 @@ angular.module('telemetriaApp')
         });
     };
 
+    /** Envía un evento al servidor */
+    this.emit = function(evento, data) {
+        socket.emit(evento, data);
+    };
+
     /** Estado de la conexión */
     this.conectado = function() {
         return socket.connected;

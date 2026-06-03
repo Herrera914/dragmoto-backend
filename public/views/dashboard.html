@@ -23,6 +23,33 @@
       <span class="estado-dot"></span>
       <span>{{ estadoMensaje }}</span>
     </div>
+
+    <!-- Indicador de conexión de la moto -->
+    <div class="moto-status" ng-class="{ 'moto-online': motoConectada, 'moto-offline': !motoConectada }">
+      <span class="estado-dot"></span>
+      <span>{{ motoConectada ? 'Moto conectada' : 'Moto desconectada' }}</span>
+    </div>
+
+    <!-- Botón PREPARAR MOTO -->
+    <button class="btn-prepare"
+            ng-class="{
+              'btn-prepare-sending': estadoPrepare === 'enviando',
+              'btn-prepare-ok':      estadoPrepare === 'ok',
+              'btn-prepare-error':   estadoPrepare === 'error'
+            }"
+            ng-click="triggerPrepare()"
+            ng-disabled="!motoConectada || estadoPrepare === 'enviando'">
+      <span ng-if="estadoPrepare === 'ok'">✓ LISTO</span>
+      <span ng-if="estadoPrepare === 'enviando'">ENVIANDO...</span>
+      <span ng-if="estadoPrepare !== 'ok' && estadoPrepare !== 'enviando'">PREPARAR MOTO</span>
+    </button>
+
+    <!-- Mensaje de feedback -->
+    <div class="prepare-feedback"
+         ng-if="mensajePrepare && estadoPrepare !== 'enviando'"
+         ng-class="{ 'prepare-ok': estadoPrepare === 'ok', 'prepare-error': estadoPrepare === 'error' }">
+      {{ mensajePrepare }}
+    </div>
   </div>
 
   <!-- ── Columna central: métricas ── -->

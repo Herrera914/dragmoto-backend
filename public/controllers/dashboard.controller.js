@@ -16,16 +16,21 @@ angular.module('telemetriaApp')
 .controller('DashboardCtrl', function($scope, $interval, SocketService, RunService) {
 
     // ── Estado del dashboard ──────────────────────────────────────
-    $scope.conectado    = false;
-    $scope.enVivo       = false;
-    $scope.velocidad    = 0;
-    $scope.maxVelocidad = 0;
-    $scope.aceleracion  = 0;
-    $scope.maxAceler    = 0;
-    $scope.distancia    = 0;
-    $scope.trapSpeed    = null;
-    $scope.ultimoRun    = null;
-    $scope.estadoMensaje= 'Esperando conexión...';
+    $scope.conectado      = false;
+    $scope.enVivo         = false;
+    $scope.velocidad      = 0;
+    $scope.maxVelocidad   = 0;
+    $scope.aceleracion    = 0;
+    $scope.maxAceler      = 0;
+    $scope.distancia      = 0;
+    $scope.trapSpeed      = null;
+    $scope.ultimoRun      = null;
+    $scope.estadoMensaje  = 'Esperando conexión...';
+
+    // ── Estado del botón PREPARAR ─────────────────────────────────
+    $scope.motoConectada  = false;
+    $scope.estadoPrepare  = '';   // '' | 'enviando' | 'ok' | 'error'
+    $scope.mensajePrepare = '';
 
     // Tiempos de sprint del run actual
     $scope.sprints = {
@@ -39,11 +44,44 @@ angular.module('telemetriaApp')
 
     // ── Verificar conexión al servidor ────────────────────────────
     RunService.verificarConexion().then(function(data) {
-        $scope.conectado = !!data;
+        $scope.conectado     = !!data;
+        $scope.motoConectada = !!(data && data.moto_conectada);
         $scope.estadoMensaje = data
             ? 'Conectado — esperando telemetría'
             : 'Sin conexión con el servidor';
     });
+
+    // ── Estado de conexión de la moto (en tiempo real) ───────────
+    SocketService.on('moto_status', function(data) {
+        $scope.motoConectada = !!data.conectada;
+    });
+
+    // ── Feedback del comando PREPARAR ─────────────────────────────
+    SocketService.on('prepare_ok', function() {
+        $scope.estadoPrepare  = 'ok';
+        $scope.mensajePrepare = '✓ LISTO — la moto está preparada';
+        $interval(function() {
+            $scope.estadoPrepare  = '';
+            $scope.mensajePrepare = '';
+        }, 3000, 1);
+    });
+
+    SocketService.on('prepare_error', function(data) {
+        $scope.estadoPrepare  = 'error';
+        $scope.mensajePrepare = (data && data.mensaje) ? data.mensaje : 'Error: moto no conectada';
+        $interval(function() {
+            $scope.estadoPrepare  = '';
+            $scope.mensajePrepare = '';
+        }, 3000, 1);
+    });
+
+    // ── Acción del botón PREPARAR ─────────────────────────────────
+    $scope.triggerPrepare = function() {
+        if (!$scope.motoConectada || $scope.estadoPrepare === 'enviando') return;
+        $scope.estadoPrepare  = 'enviando';
+        $scope.mensajePrepare = 'Enviando...';
+        SocketService.emit('web_trigger_prepare');
+    };
 
     // ── Escuchar punto GPS en vivo (Socket.io) ────────────────────
     SocketService.on('live_point', function(data) {

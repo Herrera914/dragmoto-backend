@@ -154,6 +154,64 @@ html, body {
   50%       { opacity: 0.4; transform: scale(0.8); }
 }
 
+/* ── Indicador estado moto ───────────────────────────────────── */
+.moto-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.65rem;
+  margin-top: 10px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+
+.moto-online  { border-color: var(--green); color: var(--green); }
+.moto-offline { color: var(--muted); }
+.moto-online .estado-dot  { background: var(--green); animation: pulso 1.4s infinite; }
+.moto-offline .estado-dot { background: var(--muted); animation: none; }
+
+/* ── Botón PREPARAR MOTO ─────────────────────────────────────── */
+.btn-prepare {
+  width: 100%;
+  margin-top: 14px;
+  padding: 14px;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font-disp);
+  font-size: 1.4rem;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  transition: background 0.2s, filter 0.2s;
+  background: var(--green);
+  color: #000;
+}
+
+.btn-prepare:hover:not(:disabled) { filter: brightness(1.15); }
+
+.btn-prepare:disabled {
+  background: var(--surface2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  cursor: not-allowed;
+}
+
+.btn-prepare-sending { background: var(--orange) !important; color: #000 !important; }
+.btn-prepare-ok      { background: var(--green)  !important; color: #000 !important; }
+.btn-prepare-error   { background: var(--red)    !important; color: #fff !important; }
+
+/* ── Feedback mensaje prepare ────────────────────────────────── */
+.prepare-feedback {
+  margin-top: 8px;
+  font-size: 0.65rem;
+  text-align: center;
+  letter-spacing: 0.06em;
+}
+
+.prepare-ok    { color: var(--green); }
+.prepare-error { color: var(--red); }
+
 /* ── Panel métricas ──────────────────────────────────────────── */
 .panel-metrics {
   grid-column: 2;
