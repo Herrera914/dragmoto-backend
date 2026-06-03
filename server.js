@@ -20,6 +20,7 @@ const PORT = process.env.PORT || 3000;
 // Guarda el socket.id de la app Android cuando se conecta.
 // Solo puede haber una moto registrada a la vez.
 let androidSocketId = null;
+let pendingCommand   = null; // 'start' cuando el dashboard presiona PREPARAR
 
 // ── Base de datos ──────────────────────────────────────────────────
 connectDB();
@@ -48,25 +49,19 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// ── POST /api/telemetry/prepare — ruta de respaldo HTTP ───────────
-// Alternativa REST al WebSocket. Útil si el dashboard no tiene
-// socket disponible o como failsafe.
+// ── POST /api/telemetry/prepare — activa el comando de inicio ─────
 app.post('/api/telemetry/prepare', (req, res) => {
-    if (!androidSocketId) {
-        console.warn('⚠️  prepare recibido pero moto NO conectada');
-        return res.status(404).json({
-            ok     : false,
-            mensaje: 'La moto no está conectada al servidor'
-        });
-    }
+    pendingCommand = 'start';
+    console.log('⚡ prepare HTTP → pendingCommand = start');
+    res.json({ ok: true, mensaje: 'Comando encolado — la moto lo recibirá en el próximo poll' });
+});
 
-    io.to(androidSocketId).emit('android_receive_prepare', {
-        estado   : 'PREPARADO',
-        timestamp: Date.now()
-    });
-
-    console.log(`✅ prepare → moto ${androidSocketId}`);
-    res.json({ ok: true, mensaje: 'Comando PREPARADO enviado a la moto' });
+// ── GET /api/telemetry/command — la moto hace polling aquí ────────
+// Devuelve el comando pendiente y lo consume (one-shot).
+app.get('/api/telemetry/command', (req, res) => {
+    const cmd    = pendingCommand;
+    pendingCommand = null;
+    res.json({ command: cmd });
 });
 
 // ── GET /api/telemetry/status — estado de conexión de la moto ─────
@@ -107,25 +102,10 @@ io.on('connection', (socket) => {
     // El dashboard emite 'web_trigger_prepare' cuando el operador
     // presiona el botón PREPARADO desde los pits.
     socket.on('web_trigger_prepare', () => {
-        if (!androidSocketId) {
-            console.warn('⚠️  web_trigger_prepare: moto no conectada');
-            // Devuelve error al dashboard
-            socket.emit('prepare_error', {
-                mensaje: 'La moto no está conectada'
-            });
-            return;
-        }
-
-        // Reenvía el comando a la moto en milisegundos
-        io.to(androidSocketId).emit('android_receive_prepare', {
-            estado   : 'PREPARADO',
-            timestamp: Date.now()
-        });
-
-        console.log(`✅ PREPARADO → moto ${androidSocketId}`);
-
-        // Confirma al dashboard que el comando fue enviado
-        socket.emit('prepare_ok', { mensaje: 'Comando enviado a la moto' });
+        pendingCommand = 'start';
+        console.log('⚡ web_trigger_prepare → pendingCommand = start');
+        // Confirma al dashboard inmediatamente; la moto lo recoge en el siguiente poll
+        socket.emit('prepare_ok', { mensaje: 'Comando enviado — la moto lo recibirá en segundos' });
     });
 
     // ── Puntos GPS en vivo desde la moto ──────────────────────────
