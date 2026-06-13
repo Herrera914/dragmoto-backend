@@ -57,8 +57,28 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 @media(min-width:1024px){.dgrid-live{grid-template-columns:280px 1fr 220px;grid-template-rows:auto auto}}
 @media(min-width:1024px){.pvel-lg{grid-column:1;grid-row:1/3}.pspr-lg{grid-column:3;grid-row:1/3}.pchart-lg{grid-column:2;grid-row:2}.pmets-lg{grid-column:2;grid-row:1}}
 
-.vtrack{fill:none;stroke:#2a2a40;stroke-width:14;stroke-linecap:round}
-.varc{fill:none;stroke-width:14;stroke-linecap:round;stroke-dasharray:471;stroke-dashoffset:471;transition:stroke-dashoffset 0.3s ease,stroke 0.3s;filter:drop-shadow(0 0 8px currentColor)}
+/* ── velocímetro LED ── */
+#gaugeHalo{filter:blur(10px)}
+
+/* ── motor en vivo: animaciones de estado ── */
+:root{
+  --ease-out-quart: cubic-bezier(0.25,1,0.5,1);
+  --ease-out-quint: cubic-bezier(0.22,1,0.36,1);
+}
+@keyframes flashRow{0%{background-color:rgba(244,63,94,.30);border-color:rgba(244,63,94,.8)}100%{background-color:rgba(244,63,94,.05);border-color:rgba(244,63,94,.3)}}
+.flash-row{animation:flashRow .9s var(--ease-out-quart) both}
+@keyframes popVal{0%{transform:scale(1.4)}100%{transform:scale(1)}}
+.pop-val{display:inline-block;animation:popVal .45s var(--ease-out-quint) both}
+@keyframes chipIn{0%{transform:scale(.55);opacity:.2}100%{transform:scale(1);opacity:1}}
+.chip-in{animation:chipIn .35s var(--ease-out-quint) both}
+@keyframes bannerUp{from{transform:translate(-50%,18px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+.banner-up{animation:bannerUp .45s var(--ease-out-quint) both}
+@keyframes rowIn{0%{background-color:rgba(244,63,94,.22)}100%{background-color:transparent}}
+.row-in td{animation:rowIn 1.4s var(--ease-out-quart) both}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
 
 @keyframes pulse-dot{0%,100%{opacity:1;box-shadow:0 0 8px #00e676}50%{opacity:0.3;box-shadow:0 0 4px #00e676}}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -75,7 +95,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 [ng\:cloak],[ng-cloak],.ng-hide{display:none!important}
 .ng-hide-animate{transition:none!important}
 
-#speedChart{max-height:140px}
+#speedChart{max-height:160px}
 </style>
 </head>
 
@@ -104,8 +124,23 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
     <div class="pvel-lg bg-dm-s2 border border-dm-border rounded-xl p-4 md:p-5 flex flex-col items-center gap-3 relative overflow-hidden">
       <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-dm-red/40 to-transparent"></div>
       <div class="font-orbitron text-[0.45rem] font-bold tracking-[0.2em] text-dm-muted">VELOCIDAD</div>
-      <velocimetro vel="vel" maxv="maxVel"></velocimetro>
-      <div class="font-mono text-[0.65rem] text-dm-muted2 text-center">MÁX <b class="text-dm-orange2">{{ maxVel | number:1 }}</b> km/h</div>
+
+      <!-- Velocímetro LED (40 segmentos, manejado por el motor en vivo) -->
+      <div class="relative w-[240px] h-[240px]">
+        <svg class="w-full h-full" viewBox="0 0 240 240">
+          <circle id="gaugeHalo" cx="120" cy="120" r="86" fill="none" stroke="#00e676" stroke-width="14"
+                  stroke-dasharray="0 540.36" transform="rotate(135 120 120)" opacity="0"/>
+          <g id="gaugeBars"></g>
+          <g id="gaugeLabels"></g>
+        </svg>
+        <div class="absolute inset-0 flex flex-col items-center justify-center">
+          <div id="velNum" class="font-orbitron text-[2.9rem] font-black leading-none tabular-nums" style="color:#00e676">0.0</div>
+          <div class="font-mono text-[0.65rem] text-dm-muted2 tracking-[0.18em] mt-1">km/h</div>
+          <div id="chrono" class="font-mono text-[0.7rem] text-dm-yellow tabular-nums tracking-wider mt-1.5 invisible">T+ 0.00 s</div>
+        </div>
+      </div>
+
+      <div class="font-mono text-[0.65rem] text-dm-muted2 text-center -mt-2">MÁX <b id="maxVelTxt" class="text-dm-orange2 tabular-nums">0.0</b> km/h</div>
       <div class="w-full grid grid-cols-2 gap-2">
         <div class="bg-dm-s3 border border-dm-border rounded-lg p-2.5 text-center">
           <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.14em] text-dm-muted mb-1">TRAP ¼ MI</div>
@@ -116,7 +151,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
         </div>
         <div class="bg-dm-s3 border border-dm-border rounded-lg p-2.5 text-center">
           <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.14em] text-dm-muted mb-1">DISTANCIA</div>
-          <div class="font-orbitron text-lg font-black text-dm-blue">{{ dist | number:0 }}<span class="text-[0.5rem] text-dm-muted2 ml-0.5">m</span></div>
+          <div class="font-orbitron text-lg font-black text-dm-blue tabular-nums"><span id="distMini">0</span><span class="text-[0.5rem] text-dm-muted2 ml-0.5">m</span></div>
         </div>
       </div>
 
@@ -157,26 +192,26 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 
     <!-- Métricas -->
     <div class="pmets-lg grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden transition-all duration-300 hover:border-dm-blue/40" ng-class="{ 'border-dm-blue/50 shadow-[0_0_15px_rgba(0,180,255,0.1)]': accel>0 }">
-        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-dm-blue transition-opacity duration-300" ng-class="accel>0 ? 'opacity-100' : 'opacity-0'"></div>
+      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden transition-all duration-300 hover:border-dm-blue/40" ng-class="{ 'border-dm-blue/50 shadow-[0_0_15px_rgba(0,180,255,0.1)]': enVivo }">
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-dm-blue transition-opacity duration-300" ng-class="enVivo ? 'opacity-100' : 'opacity-0'"></div>
         <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.18em] text-dm-muted mb-2.5">ACELERACIÓN</div>
-        <div class="font-orbitron text-3xl font-black text-dm-blue glow-blue leading-none tabular-nums">{{ accel | number:2 }}</div>
+        <div id="accelVal" class="font-orbitron text-3xl font-black text-dm-blue glow-blue leading-none tabular-nums">0.00</div>
         <div class="font-mono text-[0.6rem] text-dm-muted2 mt-1">m/s²</div>
         <div class="w-full h-1 bg-dm-border2 rounded-full mt-2.5 overflow-hidden">
-          <div class="h-full bg-gradient-to-r from-dm-blue to-dm-orange rounded-full transition-all duration-300 shadow-[0_0_6px_rgba(0,180,255,0.5)]" ng-style="{ width: pctAccel()+'%' }"></div>
+          <div id="accelBar" class="h-full w-full bg-gradient-to-r from-dm-blue to-dm-orange rounded-full shadow-[0_0_6px_rgba(0,180,255,0.5)] origin-left" style="transform:scaleX(0)"></div>
         </div>
-        <div class="font-mono text-[0.55rem] text-dm-muted2 mt-2">PICO: {{ maxAccel | number:2 }} m/s²</div>
+        <div class="font-mono text-[0.55rem] text-dm-muted2 mt-2">PICO: <span id="accelPeak" class="tabular-nums">0.00</span> m/s²</div>
       </div>
 
-      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden transition-all duration-300 hover:border-dm-green/40" ng-class="{ 'border-dm-green/50 shadow-[0_0_15px_rgba(0,230,118,0.1)]': dist>0 }">
-        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-dm-green transition-opacity duration-300" ng-class="dist>0 ? 'opacity-100' : 'opacity-0'"></div>
+      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden transition-all duration-300 hover:border-dm-green/40" ng-class="{ 'border-dm-green/50 shadow-[0_0_15px_rgba(0,230,118,0.1)]': enVivo }">
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-dm-green transition-opacity duration-300" ng-class="enVivo ? 'opacity-100' : 'opacity-0'"></div>
         <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.18em] text-dm-muted mb-2.5">RECORRIDO</div>
-        <div class="font-orbitron text-3xl font-black text-dm-green glow-green leading-none tabular-nums">{{ dist | number:0 }}</div>
+        <div id="distVal" class="font-orbitron text-3xl font-black text-dm-green glow-green leading-none tabular-nums">0</div>
         <div class="font-mono text-[0.6rem] text-dm-muted2 mt-1">metros</div>
         <div class="flex flex-col gap-1 mt-2">
-          <div class="flex items-center justify-between px-2.5 py-1 border rounded text-xs font-mono transition-all duration-200" ng-class="dist>=100 ? 'border-dm-green/40 text-dm-green bg-dm-green/5' : 'border-dm-border text-dm-muted'"><span>100 m</span><span>{{ dist>=100 ? '✓':'○' }}</span></div>
-          <div class="flex items-center justify-between px-2.5 py-1 border rounded text-xs font-mono transition-all duration-200" ng-class="dist>=201 ? 'border-dm-green/40 text-dm-green bg-dm-green/5' : 'border-dm-border text-dm-muted'"><span>⅛ milla</span><span>{{ dist>=201 ? '✓':'○' }}</span></div>
-          <div class="flex items-center justify-between px-2.5 py-1 border rounded text-xs font-mono transition-all duration-200" ng-class="dist>=402 ? 'border-dm-green/40 text-dm-green bg-dm-green/5' : 'border-dm-border text-dm-muted'"><span>¼ milla</span><span>{{ dist>=402 ? '✓':'○' }}</span></div>
+          <div id="chip100" class="flex items-center justify-between px-2.5 py-1 border border-dm-border rounded text-xs font-mono text-dm-muted"><span>100 m</span><span>○</span></div>
+          <div id="chip201" class="flex items-center justify-between px-2.5 py-1 border border-dm-border rounded text-xs font-mono text-dm-muted"><span>⅛ milla</span><span>○</span></div>
+          <div id="chip402" class="flex items-center justify-between px-2.5 py-1 border border-dm-border rounded text-xs font-mono text-dm-muted"><span>¼ milla</span><span>○</span></div>
         </div>
       </div>
 
@@ -194,7 +229,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
     </div>
 
     <!-- Sprint Times -->
-    <div class="pspr-lg bg-dm-s2 border border-dm-border rounded-xl p-4 md:p-5 flex flex-col gap-2 relative overflow-hidden">
+    <div id="sprintPanel" class="pspr-lg bg-dm-s2 border border-dm-border rounded-xl p-4 md:p-5 flex flex-col gap-2 relative overflow-hidden">
       <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-dm-red/40 to-transparent"></div>
       <div class="font-orbitron text-[0.45rem] font-bold tracking-[0.2em] text-dm-muted mb-1">TIEMPOS DE SPRINT</div>
       <div ng-if="liveSpeedTests.length > 0">
@@ -261,32 +296,32 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
         <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-red"></div>
         <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">TOTAL RUNS</div>
-        <div class="font-orbitron text-2xl font-black text-dm-red glow-red tabular-nums">{{ stats.totalRuns||0 }}</div>
+        <div class="font-orbitron text-2xl font-black text-dm-red glow-red tabular-nums"><span count-up="stats.totalRuns||0" decimals="0"></span></div>
       </div>
       <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
         <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-blue"></div>
         <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR TOP SPEED</div>
-        <div class="font-orbitron text-2xl font-black text-dm-blue glow-blue tabular-nums">{{ stats.bestTopSpeed ? (stats.bestTopSpeed|number:1)+'':'—' }}<span ng-if="stats.bestTopSpeed" class="text-xs text-dm-muted2 ml-1">km/h</span></div>
+        <div class="font-orbitron text-2xl font-black text-dm-blue glow-blue tabular-nums"><span count-up="stats.bestTopSpeed" decimals="1"></span><span ng-if="stats.bestTopSpeed" class="text-xs text-dm-muted2 ml-1">km/h</span></div>
       </div>
       <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
         <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-green"></div>
         <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR 0→100</div>
-        <div class="font-orbitron text-2xl font-black text-dm-green glow-green tabular-nums">{{ stats.bestZeroTo100 ? (stats.bestZeroTo100|number:2)+'s':'—' }}</div>
+        <div class="font-orbitron text-2xl font-black text-dm-green glow-green tabular-nums"><span count-up="stats.bestZeroTo100" decimals="2" suffix="s"></span></div>
       </div>
       <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
         <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-yellow"></div>
         <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR 100 M</div>
-        <div class="font-orbitron text-2xl font-black text-dm-yellow glow-yellow tabular-nums">{{ stats.bestHundredMeters ? (stats.bestHundredMeters|number:2)+'s':'—' }}</div>
+        <div class="font-orbitron text-2xl font-black text-dm-yellow glow-yellow tabular-nums"><span count-up="stats.bestHundredMeters" decimals="2" suffix="s"></span></div>
       </div>
       <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
         <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-orange"></div>
         <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR ⅛ MILLA</div>
-        <div class="font-orbitron text-2xl font-black text-dm-orange glow-orange tabular-nums">{{ stats.bestEighthMile ? (stats.bestEighthMile|number:2)+'s':'—' }}</div>
+        <div class="font-orbitron text-2xl font-black text-dm-orange glow-orange tabular-nums"><span count-up="stats.bestEighthMile" decimals="2" suffix="s"></span></div>
       </div>
       <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
         <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-blueSoft"></div>
         <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR ¼ MILLA</div>
-        <div class="font-orbitron text-2xl font-black text-dm-blueSoft tabular-nums">{{ stats.bestQuarterMile ? (stats.bestQuarterMile|number:2)+'s':'—' }}</div>
+        <div class="font-orbitron text-2xl font-black text-dm-blueSoft tabular-nums"><span count-up="stats.bestQuarterMile" decimals="2" suffix="s"></span></div>
       </div>
     </div>
 
@@ -323,7 +358,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
           </tr>
         </thead>
         <tbody>
-          <tr ng-repeat="r in runs | filter:q | orderBy:col:desc" class="border-b border-dm-border hover:bg-dm-red/5 transition-colors">
+          <tr ng-repeat="r in runs | filter:q | orderBy:col:desc" class="border-b border-dm-border hover:bg-dm-red/5 transition-colors" ng-class="{ 'row-in': r._id === newId }">
             <td class="px-3.5 py-3 font-mono text-xs text-dm-muted2 whitespace-nowrap">{{ r.created_at | date:'dd/MM/yy HH:mm' }}</td>
             <td class="px-3.5 py-3 font-rajdhani text-sm font-bold text-dm-text">{{ r.vehicle_name||'—' }}</td>
             <td class="px-3.5 py-3 font-orbitron text-sm font-bold text-dm-orange">{{ r.top_speed|number:1 }} km/h</td>
@@ -480,11 +515,292 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 
 </div>
 
+<!-- ── Banner run completado ── -->
+<div id="banner" class="fixed bottom-6 left-1/2 z-[600] hidden bg-dm-s1 border border-dm-red/40 rounded-xl px-5 py-3 shadow-[0_0_30px_rgba(244,63,94,0.15)]" style="transform:translate(-50%,0)">
+  <div class="font-orbitron text-[0.5rem] font-bold tracking-[0.18em] text-dm-red mb-1.5">✓ RUN COMPLETADO</div>
+  <div id="bannerBody" class="font-mono text-[0.7rem] text-dm-text flex flex-wrap gap-x-4 gap-y-1"></div>
+</div>
+
 <!-- ── Scripts ── -->
 <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
+/* ════════════════════════════════════════════════════════════
+   MOTOR EN VIVO (vanilla, fuera de Angular)
+   Maneja los elementos de alta frecuencia a 60 fps: velocímetro
+   LED, números interpolados entre fixes de 1 Hz, curva con hitos
+   y cronómetro anclado al lanzamiento. Angular conserva sockets,
+   historial y botones. Con prefers-reduced-motion los valores
+   saltan a 1 Hz como antes (sin animación).
+   ════════════════════════════════════════════════════════════ */
+var Live = (function(){
+  const RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const on = !RM;
+  const $id = id => document.getElementById(id);
+
+  const velNum = $id('velNum'), gaugeHalo = $id('gaugeHalo');
+  const maxVelTxt = $id('maxVelTxt'), distMini = $id('distMini');
+  const accelVal = $id('accelVal'), accelBar = $id('accelBar'), accelPeak = $id('accelPeak');
+  const distVal = $id('distVal'), chronoEl = $id('chrono');
+  const banner = $id('banner'), bannerBody = $id('bannerBody');
+
+  /* ── velocímetro LED: 40 segmentos en arco 270° (135° → 405°) ── */
+  const GA = { cx:120, cy:120, vmax:200, a0:135, sweepDeg:270, step:5, circ:540.36, arc:405.27 };
+  const gaugeDeg = v => GA.a0 + GA.sweepDeg * Math.min(v, GA.vmax) / GA.vmax;
+  function gaugePt(r, deg){ const a = deg * Math.PI / 180; return [GA.cx + r * Math.cos(a), GA.cy + r * Math.sin(a)]; }
+  const zoneColor = v => v < 60 ? '#00e676' : v < 100 ? '#ff9500' : v < 160 ? '#f43f5e' : '#ff1744';
+  const BARS = [], BAR_OFF = '#1d1d30';
+
+  (function buildGauge(){
+    let html = '';
+    for (let v = GA.step; v <= GA.vmax; v += GA.step){
+      const deg = gaugeDeg(v), anchor = v % 50 === 0;
+      const p1 = gaugePt(anchor ? 73 : 78, deg), p2 = gaugePt(96, deg);
+      html += '<line x1="' + p1[0].toFixed(1) + '" y1="' + p1[1].toFixed(1) + '" x2="' + p2[0].toFixed(1) + '" y2="' + p2[1].toFixed(1) +
+              '" stroke="' + BAR_OFF + '" stroke-width="4.5" stroke-linecap="round" data-v="' + v + '"/>';
+    }
+    $id('gaugeBars').innerHTML = html;
+    $id('gaugeBars').querySelectorAll('line').forEach(el => BARS.push({ el, val: +el.dataset.v, color: zoneColor(+el.dataset.v - 0.01) }));
+    let lab = '';
+    [0, 50, 100, 150, 200].forEach(v => {
+      const p = gaugePt(61, gaugeDeg(v));
+      lab += '<text x="' + p[0].toFixed(1) + '" y="' + p[1].toFixed(1) + '" fill="#454560" font-size="8.5" font-family="Share Tech Mono, monospace" text-anchor="middle" dominant-baseline="middle">' + v + '</text>';
+    });
+    $id('gaugeLabels').innerHTML = lab;
+  })();
+
+  function setBars(v){
+    let head = -1;
+    for (let i = 0; i < BARS.length; i++){ if (BARS[i].val <= v) head = i; }
+    BARS.forEach((b, i) => {
+      if (i <= head){
+        b.el.setAttribute('stroke', i === head ? '#ffffff' : b.color);
+        b.el.setAttribute('opacity', '1');
+      } else if (b.val <= maxVel){
+        b.el.setAttribute('stroke', b.color);          /* peak hold */
+        b.el.setAttribute('opacity', '0.28');
+      } else {
+        b.el.setAttribute('stroke', BAR_OFF);
+        b.el.setAttribute('opacity', '1');
+      }
+    });
+    const vis = GA.arc * Math.min(v, GA.vmax) / GA.vmax;
+    gaugeHalo.setAttribute('stroke-dasharray', vis.toFixed(2) + ' ' + (GA.circ - vis).toFixed(2));
+    gaugeHalo.setAttribute('stroke', zoneColor(v));
+    gaugeHalo.setAttribute('opacity', v > 4 ? '0.30' : '0');
+  }
+  function setGauge(v){ velNum.style.color = zoneColor(v); setBars(v); }
+
+  function setChip(id, done){
+    const chip = $id(id);
+    if (done){
+      chip.className = 'flex items-center justify-between px-2.5 py-1 border border-dm-green/40 rounded text-xs font-mono text-dm-green bg-dm-green/5' + (on ? ' chip-in' : '');
+      chip.lastElementChild.textContent = '✓';
+    } else {
+      chip.className = 'flex items-center justify-between px-2.5 py-1 border border-dm-border rounded text-xs font-mono text-dm-muted';
+      chip.lastElementChild.textContent = '○';
+    }
+  }
+
+  /* ── curva de velocidad con marcadores de hito ── */
+  let chart = null, pushCount = 0, markers = [];
+  const milestonePlugin = {
+    id: 'milestones',
+    afterDatasetsDraw(c){
+      if (!on) return;
+      const { ctx, chartArea, scales } = c;
+      const data = c.data.datasets[0].data;
+      const offset = pushCount - data.length;
+      ctx.save();
+      markers.forEach(m => {
+        const idx = m.abs - offset;
+        if (idx < 0 || idx >= data.length) return;
+        const x = scales.x.getPixelForValue(idx);
+        ctx.strokeStyle = m.color + '88';
+        ctx.setLineDash([4,4]); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, chartArea.top + 12); ctx.lineTo(x, chartArea.bottom); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = '9px "Share Tech Mono", monospace';
+        ctx.fillStyle = m.color; ctx.textAlign = 'center';
+        ctx.fillText(m.label, x, chartArea.top + 8);
+      });
+      if (data.length > 1){
+        const i = data.length - 1;
+        const x = scales.x.getPixelForValue(i), y = scales.y.getPixelForValue(data[i]);
+        ctx.shadowColor = '#f43f5e'; ctx.shadowBlur = 12;
+        ctx.fillStyle = '#f43f5e';
+        ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+  };
+
+  function initChart(){
+    const el = $id('speedChart');
+    if (!el || typeof Chart === 'undefined') return;
+    chart = new Chart(el, {
+      type: 'line',
+      data: { labels: [], datasets: [{
+        data: [],
+        borderColor: '#f43f5e',
+        backgroundColor(context){
+          const { ctx, chartArea } = context.chart;
+          if (!on || !chartArea) return 'rgba(244,63,94,0.06)';
+          const g = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+          g.addColorStop(0, 'rgba(244,63,94,0)');
+          g.addColorStop(1, 'rgba(244,63,94,0.22)');
+          return g;
+        },
+        borderWidth: 2, pointRadius: 0, tension: 0.35, fill: true
+      }]},
+      options: {
+        responsive: true, animation: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: {
+          x: { display: false },
+          y: { min: 0, suggestedMax: 180,
+               grid: { color: 'rgba(255,255,255,0.03)' },
+               ticks: { color: '#454560', font: { size: 10, family: '"Share Tech Mono"' } } }
+        }
+      },
+      plugins: [milestonePlugin]
+    });
+  }
+  function pushChart(v){
+    if (!chart) return;
+    const d = chart.data;
+    d.labels.push(pushCount); d.datasets[0].data.push(v);
+    pushCount++;
+    const win = on ? 140 : 40;
+    while (d.datasets[0].data.length > win){ d.labels.shift(); d.datasets[0].data.shift(); }
+    chart.update('none');
+  }
+  function addMarker(label, color){
+    markers.push({ abs: Math.max(0, pushCount - 1), label, color });
+  }
+  function resetChart(){
+    pushCount = 0; markers = [];
+    if (!chart) return;
+    chart.data.labels = []; chart.data.datasets[0].data = [];
+    chart.update('none');
+  }
+
+  /* ── interpolación rAF entre fixes de 1 Hz ── */
+  const disp = { vel:0, accel:0, dist:0 }, tgt = { vel:0, accel:0, dist:0 };
+  let maxVel = 0, maxAccel = 0;
+  let state = 'idle', launchPerf = 0, lastFixAt = 0;
+  const swp = { active:false, t0:0 };
+
+  function render(v, a, x){
+    velNum.textContent = v.toFixed(1);
+    setGauge(v);
+    accelVal.textContent = a.toFixed(2);
+    accelBar.style.transform = 'scaleX(' + Math.min(Math.max(a, 0) / 10, 1).toFixed(3) + ')';
+    distVal.textContent = Math.round(x);
+    distMini.textContent = Math.round(x);
+  }
+  function applyPlain(){
+    accelBar.style.transition = 'transform .3s ease';
+    disp.vel = tgt.vel; disp.accel = tgt.accel; disp.dist = tgt.dist;
+    render(tgt.vel, tgt.accel, tgt.dist);
+  }
+
+  let lastFrame = performance.now();
+  function frame(now){
+    const dt = Math.min((now - lastFrame) / 1000, 0.1);
+    lastFrame = now;
+    if (on){
+      const k = 1 - Math.exp(-dt * 4.2);
+      disp.vel   += (tgt.vel   - disp.vel)   * k;
+      disp.accel += (tgt.accel - disp.accel) * k;
+      disp.dist  += (tgt.dist  - disp.dist)  * k;
+      render(disp.vel, disp.accel, disp.dist);
+      /* barrido de encendido (al preparar la moto) */
+      if (swp.active){
+        const p = (now - swp.t0) / 900;
+        if (p >= 1){ swp.active = false; setBars(disp.vel); }
+        else setBars(GA.vmax * (p < 0.5 ? p * 2 : 2 - p * 2));
+      }
+      /* cronómetro anclado al lanzamiento */
+      if (state === 'running'){
+        chronoEl.classList.remove('invisible');
+        chronoEl.textContent = 'T+ ' + ((now - launchPerf) / 1000).toFixed(2) + ' s';
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* curva fluida a 5 Hz mientras llegan datos de la moto */
+  setInterval(function(){
+    if (on && chart && performance.now() - lastFixAt < 3000) pushChart(disp.vel);
+  }, 200);
+
+  /* cascada de flashes en los tiempos de sprint al completar el run */
+  function cascadeSprints(){
+    const rows = document.querySelectorAll('#sprintPanel .justify-between');
+    let i = 0;
+    rows.forEach(row => {
+      const val = row.querySelector('.font-orbitron');
+      if (!val || val.textContent.trim() === '—') return;
+      setTimeout(() => {
+        row.classList.add('flash-row'); val.classList.add('pop-val');
+        row.addEventListener('animationend', () => {
+          row.classList.remove('flash-row'); val.classList.remove('pop-val');
+        }, { once:true });
+      }, 90 * i++);
+    });
+  }
+
+  return {
+    /* punto GPS en vivo (1 Hz desde la moto) */
+    onFix(f){
+      if (state === 'done' && f.v > 5 && f.x < 50) this.reset();   /* nueva carrera sin esperar el reset */
+      if (state === 'idle' && f.v > 5){ state = 'running'; launchPerf = performance.now(); }
+      const prevX = tgt.dist;
+      tgt.vel = f.v; tgt.accel = f.a; tgt.dist = f.x;
+      lastFixAt = performance.now();
+      if (f.v > maxVel){ maxVel = f.v; maxVelTxt.textContent = maxVel.toFixed(1); }
+      if (f.a > maxAccel){ maxAccel = f.a; accelPeak.textContent = maxAccel.toFixed(2); }
+      [[100, '100 m', '#00e676', 'chip100'], [201, '⅛ mi', '#ff9500', 'chip201'], [402, '¼ mi', '#f43f5e', 'chip402']].forEach(function(m){
+        if (prevX < m[0] && f.x >= m[0]){ setChip(m[3], true); if (on) addMarker(m[1], m[2]); }
+      });
+      if (!on){ applyPlain(); pushChart(tgt.vel); }
+    },
+    /* resultados oficiales del run */
+    onRunCompleted(r){
+      state = 'done';
+      if (on && r && r.quarter_mile) chronoEl.textContent = 'T+ ' + parseFloat(r.quarter_mile).toFixed(2) + ' s';
+      const parts = [];
+      if (r && r.top_speed != null)     parts.push('<span>TOP <b class="text-dm-orange">' + parseFloat(r.top_speed).toFixed(1) + '</b> km/h</span>');
+      if (r && r.zero_to_100)           parts.push('<span>0→100 <b class="text-dm-green">' + parseFloat(r.zero_to_100).toFixed(2) + 's</b></span>');
+      if (r && r.quarter_mile)          parts.push('<span>¼ mi <b class="text-dm-red">' + parseFloat(r.quarter_mile).toFixed(2) + 's</b></span>');
+      if (r && r.trap_speed_quarter)    parts.push('<span>trap <b class="text-dm-blue">' + parseFloat(r.trap_speed_quarter).toFixed(1) + '</b> km/h</span>');
+      bannerBody.innerHTML = parts.join('');
+      banner.classList.remove('hidden');
+      if (on){
+        banner.classList.add('banner-up');
+        setTimeout(cascadeSprints, 120);             /* espera al digest de Angular */
+      }
+    },
+    reset(){
+      state = 'idle';
+      tgt.vel = 0; tgt.accel = 0; tgt.dist = 0;
+      disp.vel = 0; disp.accel = 0; disp.dist = 0;
+      maxVel = 0; maxAccel = 0;
+      maxVelTxt.textContent = '0.0'; accelPeak.textContent = '0.00';
+      chronoEl.classList.add('invisible'); chronoEl.textContent = 'T+ 0.00 s';
+      banner.classList.add('hidden'); banner.classList.remove('banner-up');
+      setChip('chip100', false); setChip('chip201', false); setChip('chip402', false);
+      resetChart();
+      render(0, 0, 0);
+    },
+    sweep(){ if (on){ swp.active = true; swp.t0 = performance.now(); } },
+    init(){ initChart(); render(0, 0, 0); requestAnimationFrame(frame); }
+  };
+})();
+Live.init();
+
 var app = angular.module('telemetriaApp', []);
 
 app.service('Sock', function($rootScope) {
@@ -501,39 +817,35 @@ app.service('Api', function($http) {
   this.del   = function(id) { return $http.delete('/api/runs/'+id); };
 });
 
-app.directive('velocimetro', function() {
+/* count-up: anima el valor numérico de las estadísticas del historial */
+app.directive('countUp', function() {
   return {
-    restrict: 'E',
-    scope: { vel:'=', maxv:'=' },
-    template:
-      '<div class="relative w-[200px] h-[200px]">' +
-        '<svg class="w-full h-full" viewBox="0 0 120 120" style="transform:rotate(-135deg)">' +
-          '<circle class="vtrack" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="78"/>' +
-          '<circle class="varc" cx="60" cy="60" r="50" ng-style="{stroke:col(),\'stroke-dashoffset\':off()}" stroke-dasharray="314"/>' +
-        '</svg>' +
-        '<div class="absolute inset-0 flex flex-col items-center justify-center">' +
-          '<div class="font-orbitron text-[3.2rem] font-black leading-none tabular-nums transition-colors duration-300" ng-style="{color:col()}">{{ vel|number:1 }}</div>' +
-          '<div class="font-mono text-[0.65rem] text-dm-muted2 tracking-[0.1em] mt-0.5">km/h</div>' +
-        '</div>' +
-      '</div>',
-    controller: function($scope) {
-      var ARC = 236;
-      $scope.off = function() {
-        return 314 - (ARC * Math.min($scope.vel||0, 200) / 200) + 78;
-      };
-      $scope.col = function() {
-        var v = $scope.vel||0;
-        return v < 60 ? '#00e676' : v < 100 ? '#ff9500' : '#ff1744';
-      };
+    restrict: 'A',
+    scope: { countUp: '<', decimals: '@', suffix: '@' },
+    link: function(scope, el) {
+      var RM  = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var dec = parseInt(scope.decimals || '0', 10);
+      var suf = scope.suffix || '';
+      var cur = 0;
+      scope.$watch('countUp', function(v) {
+        if (v === null || v === undefined) { el.text('—'); cur = 0; return; }
+        v = parseFloat(v);
+        if (RM) { el.text(v.toFixed(dec) + suf); cur = v; return; }
+        var from = cur, t0 = performance.now(), dur = 600;
+        (function tick(now) {
+          var p = Math.min((now - t0) / dur, 1);
+          var e = 1 - Math.pow(1 - p, 4);                /* ease-out-quart */
+          el.text((from + (v - from) * e).toFixed(dec) + suf);
+          if (p < 1) requestAnimationFrame(tick); else cur = v;
+        })(t0);
+      });
     }
   };
 });
 
 app.controller('AppCtrl', function($scope, $interval, Sock, Api) {
   $scope.tab     = 'live';
-  $scope.vel     = 0; $scope.maxVel = 0;
-  $scope.accel   = 0; $scope.maxAccel = 0;
-  $scope.dist    = 0; $scope.trap = null;
+  $scope.trap    = null;
   $scope.enVivo  = false; $scope.ultimoRun = null;
   $scope.stMsg   = 'Esperando conexión...';
   $scope.sp      = { z30:null,z60:null,z80:null,z100:null,z120:null,qm:null,em:null };
@@ -548,6 +860,7 @@ app.controller('AppCtrl', function($scope, $interval, Sock, Api) {
   Sock.on('prepare_ok', function() {
     $scope.prepSt  = 'ok';
     $scope.prepMsg = '✓ Moto preparada';
+    Live.sweep();                       // barrido de encendido del velocímetro
     $interval(function() { $scope.prepSt = ''; $scope.prepMsg = ''; }, 3000, 1);
   });
 
@@ -569,44 +882,16 @@ app.controller('AppCtrl', function($scope, $interval, Sock, Api) {
     $scope.$apply(function(){ $scope.motoConectada = !!d.moto_conectada; });
   }).catch(function(){});
 
-  var cdata = [], chart = null;
-
-  setTimeout(function() {
-    var el = document.getElementById('speedChart');
-    if (!el) return;
-    chart = new Chart(el, {
-      type: 'line',
-      data: { labels:[], datasets:[{
-        data:[], borderColor:'#f43f5e', backgroundColor:'rgba(244,63,94,0.06)',
-        borderWidth:2, pointRadius:0, tension:0.4, fill:true
-      }]},
-      options: {
-        responsive:true, animation:false,
-        plugins:{ legend:{ display:false } },
-        scales:{
-          x:{ display:false },
-          y:{ min:0, grid:{ color:'rgba(255,255,255,0.03)' },
-              ticks:{ color:'#454560', font:{ size:10, family:'Share Tech Mono' } } }
-        }
-      }
-    });
-  }, 150);
-
+  // Telemetría en vivo: el motor (Live) maneja velocímetro, números,
+  // hitos de distancia y curva; Angular solo el estado de cabecera
   Sock.on('live_point', function(d) {
     $scope.enVivo = true;
-    $scope.vel    = parseFloat(d.speed_kmh)    || 0;
-    $scope.accel  = parseFloat(d.acceleration) || 0;
-    $scope.dist   = parseFloat(d.distance)     || 0;
-    if ($scope.vel   > $scope.maxVel)   $scope.maxVel   = $scope.vel;
-    if ($scope.accel > $scope.maxAccel) $scope.maxAccel = $scope.accel;
+    Live.onFix({
+      v: parseFloat(d.speed_kmh)    || 0,
+      a: parseFloat(d.acceleration) || 0,
+      x: parseFloat(d.distance)     || 0
+    });
     $scope.stMsg = '🟢 EN VIVO — ' + new Date().toLocaleTimeString('es-CO');
-    cdata.push($scope.vel);
-    if (cdata.length > 40) cdata.shift();
-    if (chart) {
-      chart.data.labels = cdata.map(function(_,i){return i;});
-      chart.data.datasets[0].data = cdata;
-      chart.update();
-    }
   });
 
   Sock.on('run_completed', function(r) {
@@ -622,21 +907,19 @@ app.controller('AppCtrl', function($scope, $interval, Sock, Api) {
       $scope.liveSpeedTests = Array.isArray(custom) ? custom : [];
     } catch(e) { $scope.liveSpeedTests = []; }
 
+    Live.onRunCompleted(r);   // cronómetro final, banner y cascada de flashes
+
     $interval(function() {
-      $scope.vel=0; $scope.accel=0; $scope.dist=0;
-      $scope.maxVel=0; $scope.maxAccel=0; $scope.trap=null;
+      $scope.trap=null;
       $scope.sp={ z30:null,z60:null,z80:null,z100:null,z120:null,qm:null,em:null };
       $scope.liveSpeedTests=[];
-      cdata=[];
-      if (chart){ chart.data.labels=[]; chart.data.datasets[0].data=[]; chart.update(); }
       $scope.stMsg='Esperando próximo run...';
+      Live.reset();
     }, 15000, 1);
   });
-
-  $scope.pctAccel = function() { return Math.min(($scope.accel/10)*100, 100); };
 });
 
-app.controller('HistCtrl', function($scope, $timeout, Api) {
+app.controller('HistCtrl', function($scope, $timeout, Api, Sock) {
   $scope.runs     = [];
   $scope.stats    = null;
   $scope.loading  = true;
@@ -644,6 +927,7 @@ app.controller('HistCtrl', function($scope, $timeout, Api) {
   $scope.q        = '';
   $scope.col      = 'created_at';
   $scope.desc     = true;
+  $scope.newId    = null;   // fila a resaltar cuando llega un run nuevo
 
   $scope.modalRun         = null;
   $scope.modalCustomSpeed = [];
@@ -662,6 +946,24 @@ app.controller('HistCtrl', function($scope, $timeout, Api) {
 
   load();
   $scope.load = load;
+
+  // Refresco automático cuando la moto sube un run nuevo,
+  // con destello en la fila recién llegada
+  Sock.on('run_completed', function() {
+    $timeout(function() {
+      Api.runs().then(function(r) {
+        $scope.runs = r;
+        var newest = r.slice().sort(function(a, b) {
+          return new Date(b.created_at) - new Date(a.created_at);
+        })[0];
+        if (newest) {
+          $scope.newId = newest._id;
+          $timeout(function() { $scope.newId = null; }, 2600);
+        }
+      });
+      Api.stats().then(function(s) { $scope.stats = s; });
+    }, 800);   // margen para que el backend termine de guardar
+  });
 
   $scope.o = function(c) {
     $scope.desc = ($scope.col === c) ? !$scope.desc : true;

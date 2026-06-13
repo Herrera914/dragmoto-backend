@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DragMoto · Vista previa de mejoras</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        dm: {
+          bg: '#060608', s1: '#0a0a0f', s2: '#0e0e16', s3: '#14141e', s4: '#1a1a28',
+          border: '#1e1e32', border2: '#2a2a40', border3: '#353550',
+          red: '#f43f5e', redGlow: '#ff1744', redDeep: '#e11d48',
+          orange: '#ff6b00', orange2: '#ff9500',
+          blue: '#00b4ff', blueSoft: '#38bdf8',
+          green: '#00e676', greenSoft: '#4ade80',
+          yellow: '#ffd600',
+          text: '#e8eaf0', muted: '#454560', muted2: '#6b6b8a', muted3: '#8888a0',
+        }
+      },
+      fontFamily: {
+        orbitron: ['Orbitron', 'monospace'],
+        rajdhani: ['Rajdhani', 'sans-serif'],
+        mono: ['"Share Tech Mono"', 'monospace'],
+      }
+    }
+  }
+}
+</script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{height:100%}
+body{min-height:100%;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.05) 2px,rgba(0,0,0,0.05) 4px);pointer-events:none;z-index:60}
+
+:root{
+  --ease-out-quart: cubic-bezier(0.25,1,0.5,1);
+  --ease-out-quint: cubic-bezier(0.22,1,0.36,1);
+}
+
+.dgrid-live{display:grid;gap:1rem}
+@media(min-width:1024px){
+  .dgrid-live{grid-template-columns:300px 1fr 220px;grid-template-rows:auto auto}
+  .pvel-lg{grid-column:1;grid-row:1/3}.pspr-lg{grid-column:3;grid-row:1/3}
+  .pchart-lg{grid-column:2;grid-row:2}.pmets-lg{grid-column:2;grid-row:1}
+}
+
+/* ── velocímetro LED ── */
+#gaugeHalo{filter:blur(10px);transition:opacity .3s ease}
+
+.glow-red{text-shadow:0 0 20px rgba(244,63,94,.5)}
+.glow-orange{text-shadow:0 0 16px rgba(255,107,0,.4)}
+.glow-blue{text-shadow:0 0 16px rgba(0,180,255,.4)}
+.glow-green{text-shadow:0 0 16px rgba(0,230,118,.4)}
+.glow-yellow{text-shadow:0 0 16px rgba(255,214,0,.4)}
+
+/* ── mejoras: animaciones de estado ── */
+@keyframes flashRow{0%{background-color:rgba(244,63,94,.30);border-color:rgba(244,63,94,.8)}100%{background-color:rgba(244,63,94,.05);border-color:rgba(244,63,94,.3)}}
+.flash-row{animation:flashRow .9s var(--ease-out-quart) both}
+
+@keyframes popVal{0%{transform:scale(1.4)}100%{transform:scale(1)}}
+.pop-val{display:inline-block;animation:popVal .45s var(--ease-out-quint) both}
+
+@keyframes chipIn{0%{transform:scale(.55);opacity:.2}100%{transform:scale(1);opacity:1}}
+.chip-in{animation:chipIn .35s var(--ease-out-quint) both}
+
+@keyframes cdPop{0%{transform:scale(1.7);opacity:0}25%{opacity:1}100%{transform:scale(1);opacity:1}}
+.cd-pop{animation:cdPop .5s var(--ease-out-quint) both}
+
+@keyframes bannerUp{from{transform:translate(-50%,18px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+.banner-up{animation:bannerUp .45s var(--ease-out-quint) both}
+
+@keyframes rowIn{0%{background-color:rgba(244,63,94,.22)}100%{background-color:transparent}}
+.row-in td{animation:rowIn 1.4s var(--ease-out-quart) both}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+
+#speedChart{max-height:160px}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+
+<body class="bg-dm-bg text-dm-text font-rajdhani min-h-screen">
+
+<!-- ── Header ── -->
+<header class="sticky top-0 z-50 flex items-center justify-between gap-3 px-4 md:px-7 h-14 bg-dm-bg/95 backdrop-blur-xl border-b border-dm-border">
+  <div class="flex items-center gap-2.5 min-w-0">
+    <div class="w-8 h-8 border-2 border-dm-red grid place-items-center font-orbitron text-[0.55rem] font-black text-dm-red tracking-wider shrink-0" style="clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);background:rgba(244,63,94,0.08)">DM</div>
+    <div class="font-orbitron text-sm font-black tracking-[0.18em] whitespace-nowrap">DRAG<span class="text-dm-red">MOTO</span></div>
+    <div class="hidden md:block font-mono text-[0.6rem] text-dm-yellow border border-dm-yellow/30 bg-dm-yellow/5 rounded px-2 py-0.5 whitespace-nowrap">VISTA PREVIA</div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="flex gap-0.5 bg-dm-s1 border border-dm-border rounded-md p-0.5">
+    <button id="tabLive" class="px-4 py-1.5 font-orbitron text-[0.5rem] font-bold tracking-[0.12em] rounded cursor-pointer transition-all duration-200 bg-dm-red text-dm-bg">EN VIVO</button>
+    <button id="tabHist" class="px-4 py-1.5 font-orbitron text-[0.5rem] font-bold tracking-[0.12em] rounded cursor-pointer transition-all duration-200 text-dm-muted2 bg-transparent hover:text-dm-text">HISTORIAL</button>
+  </div>
+
+  <div class="flex items-center gap-4">
+    <!-- Toggle mejoras -->
+    <button id="tgl" role="switch" aria-checked="true" class="flex items-center gap-2 cursor-pointer bg-transparent border-0 group" title="Activa o desactiva las mejoras para comparar">
+      <span class="font-orbitron text-[0.5rem] font-bold tracking-[0.14em] text-dm-muted2 group-hover:text-dm-text transition-colors duration-200">MEJORAS</span>
+      <span id="tglTrack" class="relative w-9 h-5 rounded-full bg-dm-red transition-colors duration-200">
+        <span id="tglKnob" class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-dm-text transition-transform duration-200" style="transform:translateX(16px)"></span>
+      </span>
+      <span id="tglState" class="font-mono text-[0.6rem] text-dm-red w-7 text-left">ON</span>
+    </button>
+
+    <div class="hidden sm:flex items-center gap-2 font-mono text-[0.65rem] text-dm-muted2">
+      <div id="stDot" class="w-2 h-2 rounded-full bg-dm-muted transition-all duration-300"></div>
+      <span id="stMsg" class="whitespace-nowrap">Listo para simular</span>
+    </div>
+  </div>
+</header>
+
+<!-- ══ EN VIVO ══════════════════════════════════════════════════ -->
+<div id="viewLive" class="p-3 md:p-4 lg:p-5">
+  <div class="dgrid-live">
+
+    <!-- Velocímetro -->
+    <div class="pvel-lg bg-dm-s2 border border-dm-border rounded-xl p-4 md:p-5 flex flex-col items-center gap-3 relative overflow-hidden">
+      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-dm-red/40 to-transparent"></div>
+      <div class="font-orbitron text-[0.45rem] font-bold tracking-[0.2em] text-dm-muted">VELOCIDAD</div>
+
+      <div class="relative w-[240px] h-[240px]">
+        <svg class="w-full h-full" viewBox="0 0 240 240">
+          <!-- halo de energía tras los LED -->
+          <circle id="gaugeHalo" cx="120" cy="120" r="86" fill="none" stroke="#00e676" stroke-width="14"
+                  stroke-dasharray="0 540.36" transform="rotate(135 120 120)" opacity="0"/>
+          <!-- barras LED (generadas por JS) -->
+          <g id="gaugeBars"></g>
+          <!-- etiquetas mínimas -->
+          <g id="gaugeLabels"></g>
+        </svg>
+        <div class="absolute inset-0 flex flex-col items-center justify-center">
+          <div id="velNum" class="font-orbitron text-[2.9rem] font-black leading-none tabular-nums" style="color:#00e676">0.0</div>
+          <div class="font-mono text-[0.65rem] text-dm-muted2 tracking-[0.18em] mt-1">km/h</div>
+          <!-- Mejora 4: cronómetro anclado al lanzamiento -->
+          <div id="chrono" class="font-mono text-[0.7rem] text-dm-yellow tabular-nums tracking-wider mt-1.5 invisible">T+ 0.00 s</div>
+        </div>
+      </div>
+
+      <div class="font-mono text-[0.65rem] text-dm-muted2 text-center -mt-2">MÁX <b id="maxVel" class="text-dm-orange2">0.0</b> km/h</div>
+
+      <div class="w-full grid grid-cols-2 gap-2">
+        <div class="bg-dm-s3 border border-dm-border rounded-lg p-2.5 text-center">
+          <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.14em] text-dm-muted mb-1">TRAP ¼ MI</div>
+          <div id="trapVal" class="font-orbitron text-lg font-black text-dm-muted">—</div>
+        </div>
+        <div class="bg-dm-s3 border border-dm-border rounded-lg p-2.5 text-center">
+          <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.14em] text-dm-muted mb-1">DISTANCIA</div>
+          <div class="font-orbitron text-lg font-black text-dm-blue tabular-nums"><span id="distMini">0</span><span class="text-[0.5rem] text-dm-muted2 ml-0.5">m</span></div>
+        </div>
+      </div>
+
+      <div class="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dm-green/40 bg-dm-green/5">
+        <div class="w-2 h-2 rounded-full flex-shrink-0 bg-dm-green shadow-[0_0_6px_#00e676] animate-pulse"></div>
+        <span class="font-mono text-[0.6rem] text-dm-green">Moto conectada (simulación)</span>
+      </div>
+
+      <button id="btnSim" class="w-full py-3 rounded-lg font-orbitron text-sm font-black tracking-[0.12em] cursor-pointer transition-all duration-200 border bg-dm-red/90 border-dm-red text-dm-bg hover:bg-dm-red">
+        ▶ SIMULAR RUN
+      </button>
+    </div>
+
+    <!-- Métricas -->
+    <div class="pmets-lg grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden transition-all duration-300">
+        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.18em] text-dm-muted mb-2.5">ACELERACIÓN</div>
+        <div id="accelVal" class="font-orbitron text-3xl font-black text-dm-blue glow-blue leading-none tabular-nums">0.00</div>
+        <div class="font-mono text-[0.6rem] text-dm-muted2 mt-1">m/s²</div>
+        <div class="w-full h-1 bg-dm-border2 rounded-full mt-2.5 overflow-hidden">
+          <div id="accelBar" class="h-full w-full bg-gradient-to-r from-dm-blue to-dm-orange rounded-full shadow-[0_0_6px_rgba(0,180,255,0.5)] origin-left" style="transform:scaleX(0)"></div>
+        </div>
+        <div class="font-mono text-[0.55rem] text-dm-muted2 mt-2">PICO: <span id="accelPeak" class="tabular-nums">0.00</span> m/s²</div>
+      </div>
+
+      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden transition-all duration-300">
+        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.18em] text-dm-muted mb-2.5">RECORRIDO</div>
+        <div id="distVal" class="font-orbitron text-3xl font-black text-dm-green glow-green leading-none tabular-nums">0</div>
+        <div class="font-mono text-[0.6rem] text-dm-muted2 mt-1">metros</div>
+        <div class="flex flex-col gap-1 mt-2">
+          <div id="chip100" class="flex items-center justify-between px-2.5 py-1 border border-dm-border rounded text-xs font-mono text-dm-muted"><span>100 m</span><span>○</span></div>
+          <div id="chip201" class="flex items-center justify-between px-2.5 py-1 border border-dm-border rounded text-xs font-mono text-dm-muted"><span>⅛ milla</span><span>○</span></div>
+          <div id="chip402" class="flex items-center justify-between px-2.5 py-1 border border-dm-border rounded text-xs font-mono text-dm-muted"><span>¼ milla</span><span>○</span></div>
+        </div>
+      </div>
+
+      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden transition-all duration-300">
+        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.18em] text-dm-muted mb-2.5">ÚLTIMO RUN</div>
+        <div id="lastRunBody" class="text-dm-muted font-mono text-xs mt-2">Esperando primer run...</div>
+      </div>
+    </div>
+
+    <!-- Sprints -->
+    <div class="pspr-lg bg-dm-s2 border border-dm-border rounded-xl p-4 md:p-5 flex flex-col gap-1.5 relative overflow-hidden">
+      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-dm-red/40 to-transparent"></div>
+      <div class="font-orbitron text-[0.45rem] font-bold tracking-[0.2em] text-dm-muted mb-1">TIEMPOS DE SPRINT</div>
+      <div id="sprintList" class="flex flex-col gap-1.5"></div>
+    </div>
+
+    <!-- Curva -->
+    <div class="pchart-lg bg-dm-s2 border border-dm-border rounded-xl p-4 md:p-5 relative overflow-hidden">
+      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-dm-blue/30 to-transparent"></div>
+      <div class="font-orbitron text-[0.45rem] font-bold tracking-[0.2em] text-dm-muted mb-3">CURVA DE VELOCIDAD</div>
+      <canvas id="speedChart"></canvas>
+    </div>
+
+  </div>
+
+  <div class="mt-4 text-center font-mono text-[0.6rem] text-dm-muted">
+    Vista previa con datos simulados · tu index.html no fue modificado · usa el interruptor MEJORAS para comparar antes y después
+  </div>
+</div>
+
+<!-- ══ HISTORIAL ═════════════════════════════════════════════════ -->
+<div id="viewHist" class="p-3 md:p-4 lg:p-5 hidden">
+<div class="flex flex-col gap-4">
+
+  <!-- Stats -->
+  <div id="statsGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+    <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
+      <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-red"></div>
+      <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">TOTAL RUNS</div>
+      <div id="stTotal" class="font-orbitron text-2xl font-black text-dm-red glow-red tabular-nums">0</div>
+    </div>
+    <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
+      <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-blue"></div>
+      <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR TOP SPEED</div>
+      <div id="stTop" class="font-orbitron text-2xl font-black text-dm-blue glow-blue tabular-nums">—</div>
+    </div>
+    <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
+      <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-green"></div>
+      <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR 0→100</div>
+      <div id="stZ100" class="font-orbitron text-2xl font-black text-dm-green glow-green tabular-nums">—</div>
+    </div>
+    <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
+      <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-yellow"></div>
+      <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR 100 M</div>
+      <div id="stH100" class="font-orbitron text-2xl font-black text-dm-yellow glow-yellow tabular-nums">—</div>
+    </div>
+    <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
+      <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-orange"></div>
+      <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR ⅛ MILLA</div>
+      <div id="stEm" class="font-orbitron text-2xl font-black text-dm-orange glow-orange tabular-nums">—</div>
+    </div>
+    <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
+      <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-blueSoft"></div>
+      <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR ¼ MILLA</div>
+      <div id="stQm" class="font-orbitron text-2xl font-black text-dm-blueSoft tabular-nums">—</div>
+    </div>
+  </div>
+
+  <!-- Buscador -->
+  <div class="flex gap-3 items-center">
+    <input id="histQ" class="flex-1 bg-dm-s1 border border-dm-border2 rounded-lg px-4 py-2.5 text-dm-text font-mono text-sm outline-none transition-colors duration-200 focus:border-dm-red placeholder-dm-muted2" type="text" placeholder="🔍 Buscar por vehículo...">
+    <button id="histReload" class="px-4 py-2.5 rounded-lg font-orbitron text-[0.55rem] font-bold tracking-[0.1em] cursor-pointer transition-all duration-200 bg-transparent border border-dm-border2 text-dm-muted2 hover:border-dm-red hover:text-dm-red">↺ RECARGAR</button>
+  </div>
+
+  <!-- Loader -->
+  <div id="histLoad" class="hidden flex-col items-center gap-3 py-14">
+    <div class="w-8 h-8 border-[3px] border-dm-border2 border-t-dm-red rounded-full" style="animation:spin 0.7s linear infinite"></div>
+    <span class="font-mono text-sm text-dm-muted2">Cargando historial...</span>
+  </div>
+
+  <!-- Tabla -->
+  <div id="histTableWrap" class="bg-dm-s1 border border-dm-border rounded-xl overflow-x-auto">
+    <table class="w-full border-collapse" style="min-width:860px">
+      <thead>
+        <tr id="histHead" class="bg-dm-s3 border-b border-dm-border2"></tr>
+      </thead>
+      <tbody id="histBody"></tbody>
+    </table>
+  </div>
+  <div id="histEmpty" class="hidden py-14 text-center font-mono text-sm text-dm-muted2">No hay runs registrados aún.</div>
+
+</div>
+</div>
+
+<!-- ══ MODAL DETALLE RUN ═════════════════════════════════════════ -->
+<div id="modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-[70] hidden items-center justify-center p-4 md:p-5">
+  <div id="modalCard" class="bg-dm-s1 border border-dm-border2 rounded-xl w-full max-w-[760px] max-h-[90vh] overflow-y-auto flex flex-col">
+    <div class="flex justify-between items-start p-5 md:p-6 border-b border-dm-border">
+      <div>
+        <div id="mVehicle" class="font-orbitron text-lg font-black text-dm-text tracking-[0.08em]"></div>
+        <div id="mDate" class="font-mono text-[0.65rem] text-dm-muted2 mt-1"></div>
+      </div>
+      <button id="mClose" class="bg-transparent border border-dm-border2 rounded text-dm-muted2 px-2.5 py-1.5 text-lg cursor-pointer transition-all duration-200 hover:border-dm-redGlow hover:text-dm-redGlow leading-none">✕</button>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-dm-border border-b border-dm-border">
+      <div class="bg-dm-s2 p-4 text-center">
+        <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.18em] text-dm-muted mb-2">TOP SPEED</div>
+        <div id="mTop" class="font-orbitron text-2xl font-black text-dm-orange glow-orange leading-none"></div>
+        <div class="font-mono text-[0.55rem] text-dm-muted2 mt-1.5">km/h</div>
+      </div>
+      <div class="bg-dm-s2 p-4 text-center">
+        <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.18em] text-dm-muted mb-2">ACEL. PICO</div>
+        <div id="mAccel" class="font-orbitron text-2xl font-black text-dm-blue glow-blue leading-none"></div>
+        <div class="font-mono text-[0.55rem] text-dm-muted2 mt-1.5">m/s²</div>
+      </div>
+      <div class="bg-dm-s2 p-4 text-center">
+        <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.18em] text-dm-muted mb-2">TRAP ¼ MI</div>
+        <div id="mTrap" class="font-orbitron text-2xl font-black text-dm-orange2 leading-none"></div>
+        <div class="font-mono text-[0.55rem] text-dm-muted2 mt-1.5">km/h</div>
+      </div>
+      <div class="bg-dm-s2 p-4 text-center">
+        <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.18em] text-dm-muted mb-2">SALIDA</div>
+        <div id="mLaunch" class="mt-1.5"></div>
+      </div>
+    </div>
+
+    <div class="p-5 md:p-6 border-b border-dm-border">
+      <div class="font-orbitron text-[0.5rem] font-bold tracking-[0.16em] text-dm-muted mb-3">📊 COMPARATIVA DE TIEMPOS</div>
+      <canvas id="modalChart" height="150"></canvas>
+      <div class="text-center font-mono text-[0.55rem] text-dm-muted2 mt-2">Solo tiempos obtenidos en este run · barras más cortas = mejor rendimiento</div>
+    </div>
+
+    <div class="flex justify-end items-center px-5 md:px-6 py-4">
+      <button id="mClose2" class="px-4 py-2.5 rounded-lg font-orbitron text-[0.55rem] font-bold tracking-[0.1em] cursor-pointer transition-all duration-200 bg-transparent border border-dm-border2 text-dm-muted2 hover:border-dm-red hover:text-dm-red">CERRAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Cuenta atrás de staging ── -->
+<div id="cdWrap" class="fixed inset-0 z-40 hidden items-center justify-center pointer-events-none">
+  <div id="cdNum" class="font-orbitron text-[6rem] font-black text-dm-red glow-red leading-none"></div>
+</div>
+
+<!-- ── Banner run completado ── -->
+<div id="banner" class="fixed bottom-6 left-1/2 z-50 hidden bg-dm-s1 border border-dm-red/40 rounded-xl px-5 py-3 shadow-[0_0_30px_rgba(244,63,94,0.15)]" style="transform:translate(-50%,0)">
+  <div class="font-orbitron text-[0.5rem] font-bold tracking-[0.18em] text-dm-red mb-1.5">✓ RUN COMPLETADO</div>
+  <div id="bannerBody" class="font-mono text-[0.7rem] text-dm-text flex flex-wrap gap-x-4 gap-y-1"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════════════════
+   VISTA PREVIA DE MEJORAS — datos simulados, sin socket.io
+   Interruptor MEJORAS:
+     ON  → interpolación rAF, curva con hitos, flash, cronómetro
+     OFF → comportamiento actual del dashboard (saltos de 1 Hz)
+   ════════════════════════════════════════════════════════════ */
+
+const RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let enhanced = true;
+const enhActive = () => enhanced && !RM;
+const $ = id => document.getElementById(id);
+
+/* ── refs en vivo ── */
+const velNum = $('velNum'), gaugeHalo = $('gaugeHalo');
+const maxVelEl = $('maxVel');
+const trapVal = $('trapVal'), distMini = $('distMini');
+const accelVal = $('accelVal'), accelBar = $('accelBar'), accelPeak = $('accelPeak');
+const distVal = $('distVal');
+const stDot = $('stDot'), stMsg = $('stMsg');
+const chronoEl = $('chrono');
+const btnSim = $('btnSim');
+const banner = $('banner'), bannerBody = $('bannerBody');
+const cdWrap = $('cdWrap'), cdNum = $('cdNum');
+
+/* ════════════════════════════════════════════════════════════
+   VELOCÍMETRO LED — 40 segmentos en arco 270° (135° → 405°)
+   Estilo dash de superbike: cada segmento se enciende con su
+   color de zona, la punta queda blanco-incandescente y los
+   segmentos entre la velocidad actual y el máximo del run
+   quedan tenues (peak hold de LED real).
+   ════════════════════════════════════════════════════════════ */
+const GA = { cx:120, cy:120, vmax:200, a0:135, sweepDeg:270, step:5, circ:540.36, arc:405.27 };
+
+function gaugeDeg(v){ return GA.a0 + GA.sweepDeg * Math.min(v, GA.vmax) / GA.vmax; }
+function gaugePt(radius, deg){
+  const a = deg * Math.PI / 180;
+  return [GA.cx + radius * Math.cos(a), GA.cy + radius * Math.sin(a)];
+}
+function zoneColor(v){ return v < 60 ? '#00e676' : v < 100 ? '#ff9500' : v < 160 ? '#f43f5e' : '#ff1744'; }
+
+const BARS = [];
+const BAR_OFF = '#1d1d30';
+(function buildGauge(){
+  let html = '';
+  for (let v = GA.step; v <= GA.vmax; v += GA.step){
+    const deg = gaugeDeg(v);
+    const anchor = v % 50 === 0;            /* barras ancla más largas cada 50 km/h */
+    const [x1, y1] = gaugePt(anchor ? 73 : 78, deg);
+    const [x2, y2] = gaugePt(96, deg);
+    html += '<line x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) +
+            '" stroke="' + BAR_OFF + '" stroke-width="4.5" stroke-linecap="round" data-v="' + v + '"/>';
+  }
+  $('gaugeBars').innerHTML = html;
+  $('gaugeBars').querySelectorAll('line').forEach(el => {
+    const val = +el.dataset.v;
+    BARS.push({ el, val, color: zoneColor(val - 0.01) });
+  });
+  /* etiquetas mínimas en los anclajes */
+  let lab = '';
+  [0, 50, 100, 150, 200].forEach(v => {
+    const [x, y] = gaugePt(61, gaugeDeg(v));
+    lab += '<text x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" fill="#454560" font-size="8.5" font-family="Share Tech Mono, monospace" text-anchor="middle" dominant-baseline="middle">' + v + '</text>';
+  });
+  $('gaugeLabels').innerHTML = lab;
+})();
+
+function setBars(v){
+  let head = -1;
+  for (let i = 0; i < BARS.length; i++){ if (BARS[i].val <= v) head = i; }
+  BARS.forEach((b, i) => {
+    if (i <= head){
+      b.el.setAttribute('stroke', i === head ? '#ffffff' : b.color);
+      b.el.setAttribute('opacity', '1');
+    } else if (b.val <= maxVel){
+      b.el.setAttribute('stroke', b.color);          /* peak hold */
+      b.el.setAttribute('opacity', '0.28');
+    } else {
+      b.el.setAttribute('stroke', BAR_OFF);
+      b.el.setAttribute('opacity', '1');
+    }
+  });
+  /* halo de energía detrás de los LED encendidos */
+  const vis = GA.arc * Math.min(v, GA.vmax) / GA.vmax;
+  gaugeHalo.setAttribute('stroke-dasharray', vis.toFixed(2) + ' ' + (GA.circ - vis).toFixed(2));
+  gaugeHalo.setAttribute('stroke', zoneColor(v));
+  gaugeHalo.setAttribute('opacity', v > 4 ? '0.30' : '0');
+}
+
+function setGauge(v){
+  velNum.style.color = zoneColor(v);
+  setBars(v);
+}
+
+/* barrido de encendido al hacer staging (como al encender la moto) */
+const sweep = { active: false, t0: 0 };
+
+/* ── sprints ── */
+const SPRINTS = [
+  { key:'z30',  label:'0 → 30 km/h',   type:'speed', thr:30  },
+  { key:'z60',  label:'0 → 60 km/h',   type:'speed', thr:60  },
+  { key:'z80',  label:'0 → 80 km/h',   type:'speed', thr:80  },
+  { key:'z100', label:'0 → 100 km/h',  type:'speed', thr:100 },
+  { key:'z120', label:'0 → 120 km/h',  type:'speed', thr:120 },
+  { key:'em',   label:'⅛ milla (201 m)', type:'dist', thr:201 },
+  { key:'qm',   label:'¼ milla (402 m)', type:'dist', thr:402 },
+];
+const sprintEls = {};
+SPRINTS.forEach(s => {
+  const row = document.createElement('div');
+  row.className = 'flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-colors duration-300';
+  row.innerHTML =
+    '<span class="font-rajdhani text-xs font-semibold text-dm-muted2">' + s.label + '</span>' +
+    '<span class="font-orbitron text-sm font-bold text-dm-muted tabular-nums">—</span>';
+  $('sprintList').appendChild(row);
+  sprintEls[s.key] = { row, lbl: row.children[0], val: row.children[1] };
+});
+
+function setSprint(key, seconds){
+  const el = sprintEls[key];
+  el.val.textContent = seconds.toFixed(2) + 's';
+  el.lbl.classList.replace('text-dm-muted2','text-dm-text');
+  el.val.classList.replace('text-dm-muted','text-dm-red');
+  el.row.classList.add('border-dm-red/30','bg-dm-red/5');
+  if (enhActive()){                       /* mejora 3: flash de estado */
+    el.row.classList.add('flash-row');
+    el.val.classList.add('pop-val');
+    el.row.addEventListener('animationend', () => {
+      el.row.classList.remove('flash-row');
+      el.val.classList.remove('pop-val');
+    }, { once:true });
+  }
+}
+function resetSprints(){
+  SPRINTS.forEach(s => {
+    const el = sprintEls[s.key];
+    el.val.textContent = '—';
+    el.lbl.classList.replace('text-dm-text','text-dm-muted2');
+    el.val.classList.replace('text-dm-red','text-dm-muted');
+    el.row.classList.remove('border-dm-red/30','bg-dm-red/5','flash-row');
+  });
+}
+
+/* ── chips de hito en RECORRIDO ── */
+function setChip(id, done){
+  const chip = $(id);
+  if (done){
+    chip.className = 'flex items-center justify-between px-2.5 py-1 border border-dm-green/40 rounded text-xs font-mono text-dm-green bg-dm-green/5' + (enhActive() ? ' chip-in' : '');
+    chip.lastElementChild.textContent = '✓';
+  } else {
+    chip.className = 'flex items-center justify-between px-2.5 py-1 border border-dm-border rounded text-xs font-mono text-dm-muted';
+    chip.lastElementChild.textContent = '○';
+  }
+}
+
+/* ── chart en vivo ── */
+let chart, pushCount = 0, markers = [];   /* markers: {abs, label, color} */
+const milestonePlugin = {
+  id: 'milestones',
+  afterDatasetsDraw(c){
+    if (!enhActive()) return;
+    const { ctx, chartArea, scales } = c;
+    const data = c.data.datasets[0].data;
+    const offset = pushCount - data.length;
+    ctx.save();
+    /* mejora 2: marcadores de hito */
+    markers.forEach(m => {
+      const idx = m.abs - offset;
+      if (idx < 0 || idx >= data.length) return;
+      const x = scales.x.getPixelForValue(idx);
+      ctx.strokeStyle = m.color + '88';
+      ctx.setLineDash([4,4]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, chartArea.top + 12); ctx.lineTo(x, chartArea.bottom); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = '9px "Share Tech Mono", monospace';
+      ctx.fillStyle = m.color;
+      ctx.textAlign = 'center';
+      ctx.fillText(m.label, x, chartArea.top + 8);
+    });
+    /* punto de cabeza con brillo */
+    if (data.length > 1){
+      const i = data.length - 1;
+      const x = scales.x.getPixelForValue(i), y = scales.y.getPixelForValue(data[i]);
+      ctx.shadowColor = '#f43f5e'; ctx.shadowBlur = 12;
+      ctx.fillStyle = '#f43f5e';
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+};
+
+function initChart(){
+  chart = new Chart($('speedChart'), {
+    type: 'line',
+    data: { labels: [], datasets: [{
+      data: [],
+      borderColor: '#f43f5e',
+      backgroundColor(context){
+        const { ctx, chartArea } = context.chart;
+        if (!enhActive() || !chartArea) return 'rgba(244,63,94,0.06)';
+        const g = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+        g.addColorStop(0, 'rgba(244,63,94,0)');
+        g.addColorStop(1, 'rgba(244,63,94,0.22)');
+        return g;
+      },
+      borderWidth: 2, pointRadius: 0, tension: 0.35, fill: true
+    }]},
+    options: {
+      responsive: true, animation: false,
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: {
+        x: { display: false },
+        y: { min: 0, suggestedMax: 180,
+             grid: { color: 'rgba(255,255,255,0.03)' },
+             ticks: { color: '#454560', font: { size: 10, family: '"Share Tech Mono"' } } }
+      }
+    },
+    plugins: [milestonePlugin]
+  });
+}
+
+function pushChart(v){
+  const d = chart.data;
+  d.labels.push(pushCount); d.datasets[0].data.push(v);
+  pushCount++;
+  const win = enhActive() ? 140 : 40;
+  while (d.datasets[0].data.length > win){ d.labels.shift(); d.datasets[0].data.shift(); }
+  chart.update('none');
+}
+function addMarker(label, color){
+  markers.push({ abs: Math.max(0, pushCount - 1), label, color });
+}
+function resetChart(){
+  pushCount = 0; markers = [];
+  chart.data.labels = []; chart.data.datasets[0].data = [];
+  chart.update('none');
+}
+
+/* ── valores mostrados: lerp rAF (mejora 1) ── */
+const disp = { vel: 0, accel: 0, dist: 0 };
+const tgt  = { vel: 0, accel: 0, dist: 0 };
+let maxVel = 0, maxAccel = 0;
+
+function render(v, a, x){
+  velNum.textContent = v.toFixed(1);
+  setGauge(v);
+  accelVal.textContent = a.toFixed(2);
+  accelBar.style.transform = 'scaleX(' + Math.min(Math.max(a, 0) / 10, 1).toFixed(3) + ')';
+  distVal.textContent = Math.round(x);
+  distMini.textContent = Math.round(x);
+}
+
+let lastFrame = performance.now();
+function frame(now){
+  const dt = Math.min((now - lastFrame) / 1000, 0.1);
+  lastFrame = now;
+  if (enhActive()){
+    accelBar.style.transition = 'none';
+    const k = 1 - Math.exp(-dt * 4.2);
+    disp.vel   += (tgt.vel   - disp.vel)   * k;
+    disp.accel += (tgt.accel - disp.accel) * k;
+    disp.dist  += (tgt.dist  - disp.dist)  * k;
+    render(disp.vel, disp.accel, disp.dist);
+    /* barrido de encendido durante el staging */
+    if (sweep.active){
+      const p = (now - sweep.t0) / 900;
+      if (p >= 1){ sweep.active = false; setBars(disp.vel); }
+      else setBars(GA.vmax * (p < 0.5 ? p * 2 : 2 - p * 2));
+    }
+    /* mejora 4: cronómetro anclado al lanzamiento */
+    if (sim.state === 'running'){
+      chronoEl.classList.remove('invisible');
+      chronoEl.textContent = 'T+ ' + ((now - sim.launchPerf) / 1000).toFixed(2) + ' s';
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+function applyPlain(){
+  accelBar.style.transition = 'transform .3s ease';
+  disp.vel = tgt.vel; disp.accel = tgt.accel; disp.dist = tgt.dist;
+  render(tgt.vel, tgt.accel, tgt.dist);
+}
+
+/* ── estado de cabecera ── */
+function setStatus(state, msg){
+  stMsg.textContent = msg;
+  stDot.className = 'w-2 h-2 rounded-full transition-all duration-300 ' + (
+    state === 'running' ? 'bg-dm-green shadow-[0_0_8px_#00e676] animate-pulse' :
+    state === 'staging' ? 'bg-dm-orange shadow-[0_0_8px_#ff6b00] animate-pulse' :
+    state === 'done'    ? 'bg-dm-blue shadow-[0_0_8px_#00b4ff]' : 'bg-dm-muted');
+}
+
+/* ════════════════════════════════════════════════════════════
+   SIMULADOR — física en tiempo real (performance.now), fixes a 1 Hz
+   a(v) = 9.2 · e^(−v/38)  →  0→100 ≈ 4.4 s · ¼ milla ≈ 12 s
+   ════════════════════════════════════════════════════════════ */
+const sim = {
+  state: 'idle', t: 0, v: 0, x: 0, a: 0,
+  launchPerf: 0, phys: null, fixer: null, feeder: null, cds: [],
+  times: {}, trap: null, finished: false
+};
+
+function emitFix(){
+  const noise = (Math.random() - 0.5) * 0.5;
+  tgt.vel   = Math.max(0, sim.v * 3.6 + noise);
+  tgt.accel = sim.a;
+  tgt.dist  = sim.x;
+  if (tgt.vel > maxVel){ maxVel = tgt.vel; maxVelEl.textContent = maxVel.toFixed(1); }
+  if (tgt.accel > maxAccel){ maxAccel = tgt.accel; accelPeak.textContent = maxAccel.toFixed(2); }
+  if (!enhActive()){
+    applyPlain();
+    if (sim.state === 'running') pushChart(tgt.vel);
+  }
+}
+
+function crossT(prev, cur, thr, t, dt){
+  return t - dt * ((cur - thr) / (cur - prev));
+}
+
+function physicsStep(){
+  /* integra con tiempo real: si el navegador limita los timers
+     (pestaña en segundo plano), la simulación no se desincroniza
+     del cronómetro */
+  const realT = (performance.now() - sim.launchPerf) / 1000;
+  while (sim.t < realT && sim.state === 'running'){
+    physicsSubStep(0.05);
+  }
+}
+
+function physicsSubStep(dt){
+  const prevV = sim.v, prevX = sim.x;
+  if (sim.x < 402 + 25){
+    sim.a = 9.2 * Math.exp(-sim.v / 38);
+  } else {
+    sim.a = -3.0;                          /* el piloto suelta el gas */
+  }
+  sim.v = Math.max(0, sim.v + sim.a * dt);
+  sim.x += sim.v * dt;
+  sim.t += dt;
+
+  /* cruces de velocidad */
+  SPRINTS.filter(s => s.type === 'speed').forEach(s => {
+    const pk = prevV * 3.6, ck = sim.v * 3.6;
+    if (pk < s.thr && ck >= s.thr && !(s.key in sim.times)){
+      sim.times[s.key] = crossT(pk, ck, s.thr, sim.t, dt);
+      setSprint(s.key, sim.times[s.key]);
+    }
+  });
+  /* cruces de distancia */
+  [['em', 201, '⅛ mi', '#ff9500'], ['qm', 402, '¼ mi', '#f43f5e'], ['h100', 100, '100 m', '#00e676']].forEach(([key, thr, lbl, col]) => {
+    if (prevX < thr && sim.x >= thr && !(key in sim.times)){
+      sim.times[key] = crossT(prevX, sim.x, thr, sim.t, dt);
+      if (key !== 'h100') setSprint(key, sim.times[key]);
+      if (enhActive()) addMarker(lbl, col);
+      if (thr === 100) setChip('chip100', true);
+      if (thr === 201) setChip('chip201', true);
+      if (thr === 402){
+        setChip('chip402', true);
+        sim.trap = sim.v * 3.6;
+        trapVal.textContent = sim.trap.toFixed(1);
+        trapVal.classList.replace('text-dm-muted','text-dm-orange2');
+        if (enhActive()) trapVal.classList.add('pop-val');
+      }
+    }
+  });
+
+  if ((sim.times.qm && sim.t > sim.times.qm + 2.5) || sim.t > 25) finishRun();
+}
+
+function launch(){
+  sim.state = 'running';
+  sim.launchPerf = performance.now();
+  setStatus('running', 'EN VIVO · simulación 1 Hz');
+  sim.phys  = setInterval(physicsStep, 50);
+  sim.fixer = setInterval(emitFix, 1000);          /* fix GPS a 1 Hz */
+  sim.feeder = setInterval(() => {                 /* mejora 2: curva fluida */
+    if (sim.state === 'running' && enhActive()) pushChart(disp.vel);
+  }, 200);
+  emitFix();
+}
+
+function finishRun(){
+  if (sim.finished) return;
+  sim.finished = true;
+  clearInterval(sim.phys); clearInterval(sim.fixer); clearInterval(sim.feeder);
+  emitFix();
+  sim.state = 'done';
+  setStatus('done', 'RUN COMPLETADO');
+  if (enhActive() && sim.times.qm) chronoEl.textContent = 'T+ ' + sim.times.qm.toFixed(2) + ' s';
+
+  const parts = [];
+  parts.push('<span>TOP <b class="text-dm-orange">' + maxVel.toFixed(1) + '</b> km/h</span>');
+  if (sim.times.z100) parts.push('<span>0→100 <b class="text-dm-green">' + sim.times.z100.toFixed(2) + 's</b></span>');
+  if (sim.times.qm)   parts.push('<span>¼ mi <b class="text-dm-red">' + sim.times.qm.toFixed(2) + 's</b></span>');
+  if (sim.trap)       parts.push('<span>trap <b class="text-dm-blue">' + sim.trap.toFixed(1) + '</b> km/h</span>');
+  bannerBody.innerHTML = parts.join('');
+  banner.classList.remove('hidden');
+  if (enhActive()) banner.classList.add('banner-up');
+
+  $('lastRunBody').innerHTML =
+    '<div class="font-orbitron text-2xl font-black text-dm-orange glow-orange leading-none tabular-nums">' + maxVel.toFixed(1) + '</div>' +
+    '<div class="font-mono text-[0.6rem] text-dm-muted2 mt-1">km/h top</div>' +
+    '<div class="font-mono text-[0.55rem] text-dm-muted2 mt-1.5">Run simulado</div>' +
+    '<div class="font-mono text-[0.55rem] text-dm-muted2 mt-0.5">0→100: ' + (sim.times.z100 ? sim.times.z100.toFixed(2) + 's' : '—') + '</div>';
+
+  /* el run aparece en el historial */
+  addRunToHistory();
+
+  btnSim.textContent = '▶ SIMULAR RUN';
+  btnSim.className = 'w-full py-3 rounded-lg font-orbitron text-sm font-black tracking-[0.12em] cursor-pointer transition-all duration-200 border bg-dm-red/90 border-dm-red text-dm-bg hover:bg-dm-red';
+}
+
+function stopSim(){
+  clearInterval(sim.phys); clearInterval(sim.fixer); clearInterval(sim.feeder);
+  sim.cds.forEach(clearTimeout); sim.cds = [];
+  cdWrap.classList.add('hidden'); cdWrap.classList.remove('flex');
+  sim.state = 'idle';
+}
+
+function resetAll(){
+  stopSim();
+  sim.t = 0; sim.v = 0; sim.x = 0; sim.a = 0;
+  sim.times = {}; sim.trap = null; sim.finished = false;
+  tgt.vel = 0; tgt.accel = 0; tgt.dist = 0;
+  disp.vel = 0; disp.accel = 0; disp.dist = 0;
+  maxVel = 0; maxAccel = 0;
+  maxVelEl.textContent = '0.0'; accelPeak.textContent = '0.00';
+  sweep.active = false;
+  trapVal.textContent = '—';
+  trapVal.classList.remove('text-dm-orange2','pop-val'); trapVal.classList.add('text-dm-muted');
+  chronoEl.classList.add('invisible'); chronoEl.textContent = 'T+ 0.00 s';
+  banner.classList.add('hidden'); banner.classList.remove('banner-up');
+  resetSprints();
+  setChip('chip100', false); setChip('chip201', false); setChip('chip402', false);
+  resetChart();
+  render(0, 0, 0);
+  setStatus('idle', 'Listo para simular');
+}
+
+function startSim(){
+  resetAll();
+  sim.state = 'staging';
+  setStatus('staging', 'EN STAGING · esperando lanzamiento');
+  if (enhActive()){ sweep.active = true; sweep.t0 = performance.now(); }
+  btnSim.textContent = '■ DETENER';
+  btnSim.className = 'w-full py-3 rounded-lg font-orbitron text-sm font-black tracking-[0.12em] cursor-pointer transition-all duration-200 border bg-transparent border-dm-border2 text-dm-muted2 hover:border-dm-red hover:text-dm-red';
+
+  cdWrap.classList.remove('hidden'); cdWrap.classList.add('flex');
+  const seq = ['3','2','1','GO'];
+  seq.forEach((txt, i) => {
+    sim.cds.push(setTimeout(() => {
+      cdNum.textContent = txt;
+      cdNum.style.color = txt === 'GO' ? '#00e676' : '#f43f5e';
+      cdNum.classList.remove('cd-pop');
+      if (enhActive()){ void cdNum.offsetWidth; cdNum.classList.add('cd-pop'); }
+      if (txt === 'GO'){
+        sim.cds.push(setTimeout(() => {
+          cdWrap.classList.add('hidden'); cdWrap.classList.remove('flex');
+        }, 450));
+        launch();
+      }
+    }, i * 800));
+  });
+}
+
+btnSim.addEventListener('click', () => {
+  if (sim.state === 'staging' || sim.state === 'running'){
+    resetAll();
+    btnSim.textContent = '▶ SIMULAR RUN';
+    btnSim.className = 'w-full py-3 rounded-lg font-orbitron text-sm font-black tracking-[0.12em] cursor-pointer transition-all duration-200 border bg-dm-red/90 border-dm-red text-dm-bg hover:bg-dm-red';
+  } else {
+    startSim();
+  }
+});
+
+/* ════════════════════════════════════════════════════════════
+   HISTORIAL — datos simulados + runs de esta sesión
+   ════════════════════════════════════════════════════════════ */
+const BASE_RUNS = [
+  { id:'r6', created_at:new Date('2026-06-10T19:42:00'), vehicle_name:'Kawasaki ZX-10R', top_speed:191.4, zero_to_30:1.04, zero_to_60:2.21, zero_to_80:3.19, zero_to_100:4.38, zero_to_120:5.71, hundred_meters:5.39, eighth_mile:7.31, quarter_mile:12.08, trap_speed_quarter:188.2, peak_acceleration:9.18, total_distance:534, launch_quality:'EXCELENTE' },
+  { id:'r5', created_at:new Date('2026-06-10T19:15:00'), vehicle_name:'Kawasaki ZX-10R', top_speed:186.9, zero_to_30:1.18, zero_to_60:2.45, zero_to_80:3.52, zero_to_100:4.79, zero_to_120:6.12, hundred_meters:5.66, eighth_mile:7.62, quarter_mile:12.51, trap_speed_quarter:183.5, peak_acceleration:8.74, total_distance:512, launch_quality:'BUENA' },
+  { id:'r4', created_at:new Date('2026-06-03T18:30:00'), vehicle_name:'Yamaha R1',       top_speed:183.2, zero_to_30:1.22, zero_to_60:2.58, zero_to_80:3.66, zero_to_100:4.95, zero_to_120:6.39, hundred_meters:5.78, eighth_mile:7.79, quarter_mile:12.74, trap_speed_quarter:180.1, peak_acceleration:8.51, total_distance:498, launch_quality:'BUENA' },
+  { id:'r3', created_at:new Date('2026-06-03T18:02:00'), vehicle_name:'Yamaha R1',       top_speed:176.8, zero_to_30:1.41, zero_to_60:2.86, zero_to_80:4.01, zero_to_100:5.38, zero_to_120:6.95, hundred_meters:6.05, eighth_mile:8.11, quarter_mile:13.22, trap_speed_quarter:173.9, peak_acceleration:7.92, total_distance:467, launch_quality:'REGULAR' },
+  { id:'r2', created_at:new Date('2026-05-21T17:48:00'), vehicle_name:'Suzuki Hayabusa', top_speed:194.6, zero_to_30:1.12, zero_to_60:2.33, zero_to_80:3.31, zero_to_100:4.52, zero_to_120:5.84, hundred_meters:5.47, eighth_mile:7.40, quarter_mile:12.19, trap_speed_quarter:190.7, peak_acceleration:9.02, total_distance:561, launch_quality:'EXCELENTE' },
+  { id:'r1', created_at:new Date('2026-05-21T17:20:00'), vehicle_name:'Suzuki Hayabusa', top_speed:181.5, zero_to_30:1.35, zero_to_60:2.71, zero_to_80:3.84, zero_to_100:5.12, zero_to_120:6.61, hundred_meters:5.91, eighth_mile:7.95, quarter_mile:12.96, trap_speed_quarter:178.4, peak_acceleration:8.23, total_distance:489, launch_quality:'BUENA' },
+];
+let histRuns = BASE_RUNS.slice();
+let histSort = { col:'created_at', desc:true };
+let newRunId = null;          /* fila a resaltar tras un run simulado */
+let modalChartInst = null;
+
+const HIST_COLS = [
+  { key:'created_at',         label:'FECHA',     sort:true },
+  { key:'vehicle_name',       label:'VEHÍCULO',  sort:true },
+  { key:'top_speed',          label:'TOP SPEED', sort:true },
+  { key:'hundred_meters',     label:'100 M',     sort:true },
+  { key:'eighth_mile',        label:'⅛ MI',      sort:true },
+  { key:'quarter_mile',       label:'¼ MI',      sort:true },
+  { key:'trap_speed_quarter', label:'TRAP',      sort:true },
+  { key:'peak_acceleration',  label:'ACEL',      sort:true },
+  { key:'total_distance',     label:'DIST',      sort:true },
+  { key:'launch_quality',     label:'SALIDA',    sort:false },
+  { key:'_actions',           label:'',          sort:false },
+];
+
+function fmtDate(d){
+  const p = n => String(n).padStart(2, '0');
+  return p(d.getDate()) + '/' + p(d.getMonth()+1) + '/' + String(d.getFullYear()).slice(2) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function launchBadge(q){
+  const cls = q === 'EXCELENTE' || q === 'BUENA' ? 'bg-dm-green/10 text-dm-green border border-dm-green/30' :
+              q === 'REGULAR' ? 'bg-dm-orange/10 text-dm-orange border border-dm-orange/30' :
+              q === 'POBRE' ? 'bg-dm-redGlow/10 text-dm-redGlow border border-dm-red/30' :
+              'bg-dm-s3 text-dm-muted2 border border-dm-border';
+  return '<span class="inline-block px-2 py-0.5 rounded font-orbitron text-[0.45rem] font-bold tracking-[0.08em] ' + cls + '">' + (q || '—') + '</span>';
+}
+
+function renderHistHead(){
+  $('histHead').innerHTML = HIST_COLS.map(c => {
+    const active = histSort.col === c.key;
+    const arrow = active ? (histSort.desc ? ' ▼' : ' ▲') : '';
+    return '<th data-col="' + c.key + '" class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-left whitespace-nowrap ' +
+      (c.sort ? 'cursor-pointer select-none transition-colors hover:text-dm-red ' : '') +
+      (active ? 'text-dm-red' : 'text-dm-muted') + '">' + c.label + arrow + '</th>';
+  }).join('');
+  $('histHead').querySelectorAll('th[data-col]').forEach(th => {
+    const col = th.dataset.col;
+    const def = HIST_COLS.find(c => c.key === col);
+    if (!def || !def.sort) return;
+    th.addEventListener('click', () => {
+      if (histSort.col === col) histSort.desc = !histSort.desc;
+      else histSort = { col, desc: true };
+      renderHist();
+    });
+  });
+}
+
+function renderHist(){
+  const q = $('histQ').value.trim().toLowerCase();
+  let rows = histRuns.filter(r => !q || r.vehicle_name.toLowerCase().includes(q));
+  const { col, desc } = histSort;
+  rows = rows.slice().sort((a, b) => {
+    let va = a[col], vb = b[col];
+    if (va instanceof Date){ va = va.getTime(); vb = vb.getTime(); }
+    if (typeof va === 'string') return desc ? vb.localeCompare(va) : va.localeCompare(vb);
+    return desc ? (vb || 0) - (va || 0) : (va || 0) - (vb || 0);
+  });
+
+  const t = s => s != null ? s.toFixed(2) + 's' : '—';
+  $('histBody').innerHTML = rows.map(r => {
+    const hl = (enhActive() && r.id === newRunId) ? ' row-in' : '';
+    return '<tr data-id="' + r.id + '" class="border-b border-dm-border hover:bg-dm-red/5 transition-colors' + hl + '">' +
+      '<td class="px-3.5 py-3 font-mono text-xs text-dm-muted2 whitespace-nowrap">' + fmtDate(r.created_at) + '</td>' +
+      '<td class="px-3.5 py-3 font-rajdhani text-sm font-bold text-dm-text whitespace-nowrap">' + r.vehicle_name + '</td>' +
+      '<td class="px-3.5 py-3 font-orbitron text-sm font-bold text-dm-orange whitespace-nowrap">' + r.top_speed.toFixed(1) + ' km/h</td>' +
+      '<td class="px-3.5 py-3 font-mono text-xs ' + (r.hundred_meters ? 'text-dm-orange' : 'text-dm-muted2') + '">' + t(r.hundred_meters) + '</td>' +
+      '<td class="px-3.5 py-3 font-mono text-xs ' + (r.eighth_mile ? 'text-dm-orange' : 'text-dm-muted2') + '">' + t(r.eighth_mile) + '</td>' +
+      '<td class="px-3.5 py-3 font-mono text-xs ' + (r.quarter_mile ? 'text-dm-orange' : 'text-dm-muted2') + '">' + t(r.quarter_mile) + '</td>' +
+      '<td class="px-3.5 py-3 font-mono text-xs text-dm-blue whitespace-nowrap">' + (r.trap_speed_quarter ? r.trap_speed_quarter.toFixed(1) + ' km/h' : '—') + '</td>' +
+      '<td class="px-3.5 py-3 font-mono text-xs text-dm-blue whitespace-nowrap">' + (r.peak_acceleration ? r.peak_acceleration.toFixed(2) + ' m/s²' : '—') + '</td>' +
+      '<td class="px-3.5 py-3 font-mono text-xs whitespace-nowrap">' + (r.total_distance / 1000).toFixed(2) + ' km</td>' +
+      '<td class="px-3.5 py-3">' + launchBadge(r.launch_quality) + '</td>' +
+      '<td class="px-3.5 py-3"><div class="flex gap-1.5">' +
+        '<button data-ver="' + r.id + '" class="bg-dm-red/10 border border-dm-red/40 rounded text-dm-red py-0.5 px-2 font-orbitron text-[0.45rem] font-bold tracking-[0.08em] cursor-pointer transition-all duration-200 hover:bg-dm-red hover:text-dm-bg">VER</button>' +
+        '<button data-del="' + r.id + '" class="bg-transparent border border-dm-border rounded text-dm-muted2 py-0.5 px-2 font-orbitron text-[0.45rem] tracking-[0.08em] cursor-pointer transition-all duration-200 hover:border-dm-redGlow hover:text-dm-redGlow">DEL</button>' +
+      '</div></td></tr>';
+  }).join('');
+
+  $('histTableWrap').classList.toggle('hidden', rows.length === 0);
+  $('histEmpty').classList.toggle('hidden', rows.length > 0);
+  newRunId = null;
+
+  $('histBody').querySelectorAll('[data-ver]').forEach(b => b.addEventListener('click', () => openModal(b.dataset.ver)));
+  $('histBody').querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+    histRuns = histRuns.filter(r => r.id !== b.dataset.del);
+    renderHist(); renderStats(false);
+  }));
+}
+
+/* count-up de stats (mejora aplicada al historial) */
+function animateNum(el, target, decimals, suffix){
+  if (!enhActive()){ el.textContent = target.toFixed(decimals) + (suffix || ''); return; }
+  const t0 = performance.now(), dur = 600;
+  (function tick(now){
+    const p = Math.min((now - t0) / dur, 1);
+    const e = 1 - Math.pow(1 - p, 4);                /* ease-out-quart */
+    el.textContent = (target * e).toFixed(decimals) + (suffix || '');
+    if (p < 1) requestAnimationFrame(tick);
+  })(t0);
+}
+
+function renderStats(animate){
+  const best = (key, min) => {
+    const vals = histRuns.map(r => r[key]).filter(v => v != null);
+    if (!vals.length) return null;
+    return min ? Math.min(...vals) : Math.max(...vals);
+  };
+  const set = (id, val, dec, suffix) => {
+    const el = $(id);
+    if (val == null){ el.textContent = '—'; return; }
+    if (animate) animateNum(el, val, dec, suffix);
+    else el.textContent = val.toFixed(dec) + (suffix || '');
+  };
+  if (animate && enhActive()) animateNum($('stTotal'), histRuns.length, 0);
+  else $('stTotal').textContent = histRuns.length;
+  set('stTop',  best('top_speed', false), 1);
+  set('stZ100', best('zero_to_100', true), 2, 's');
+  set('stH100', best('hundred_meters', true), 2, 's');
+  set('stEm',   best('eighth_mile', true), 2, 's');
+  set('stQm',   best('quarter_mile', true), 2, 's');
+}
+
+function addRunToHistory(){
+  const id = 'sim' + Date.now();
+  histRuns.unshift({
+    id,
+    created_at: new Date(),
+    vehicle_name: 'Run simulado',
+    top_speed: maxVel,
+    zero_to_30: sim.times.z30, zero_to_60: sim.times.z60, zero_to_80: sim.times.z80,
+    zero_to_100: sim.times.z100, zero_to_120: sim.times.z120,
+    hundred_meters: sim.times.h100, eighth_mile: sim.times.em, quarter_mile: sim.times.qm,
+    trap_speed_quarter: sim.trap, peak_acceleration: maxAccel,
+    total_distance: Math.round(sim.x), launch_quality: sim.times.z30 < 1.15 ? 'EXCELENTE' : sim.times.z30 < 1.45 ? 'BUENA' : 'REGULAR'
+  });
+  newRunId = id;
+  if (!$('viewHist').classList.contains('hidden')){ renderHist(); renderStats(false); }
+}
+
+/* ── modal detalle ── */
+function openModal(id){
+  const r = histRuns.find(x => x.id === id);
+  if (!r) return;
+  $('mVehicle').textContent = r.vehicle_name;
+  $('mDate').textContent = fmtDate(r.created_at);
+  $('mTop').textContent = r.top_speed.toFixed(1);
+  $('mAccel').textContent = r.peak_acceleration ? r.peak_acceleration.toFixed(2) : '—';
+  $('mTrap').textContent = r.trap_speed_quarter ? r.trap_speed_quarter.toFixed(1) : '—';
+  $('mLaunch').innerHTML = launchBadge(r.launch_quality);
+  $('modal').classList.remove('hidden'); $('modal').classList.add('flex');
+
+  const entries = [
+    ['0→30',  r.zero_to_30],  ['0→60', r.zero_to_60], ['0→80', r.zero_to_80],
+    ['0→100', r.zero_to_100], ['0→120', r.zero_to_120],
+    ['100 m', r.hundred_meters], ['⅛ mi', r.eighth_mile], ['¼ mi', r.quarter_mile]
+  ].filter(e => e[1] != null);
+  if (modalChartInst) modalChartInst.destroy();
+  modalChartInst = new Chart($('modalChart'), {
+    type: 'bar',
+    data: { labels: entries.map(e => e[0]), datasets: [{
+      data: entries.map(e => e[1]),
+      backgroundColor: 'rgba(244,63,94,0.55)',
+      borderColor: '#f43f5e', borderWidth: 1, borderRadius: 3
+    }]},
+    options: {
+      indexAxis: 'y', responsive: true,
+      animation: enhActive() ? { duration: 500, easing: 'easeOutQuart' } : false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' },
+             ticks: { color: '#6b6b8a', font: { size: 10, family: '"Share Tech Mono"' }, callback: v => v + 's' } },
+        y: { grid: { display: false },
+             ticks: { color: '#8888a0', font: { size: 11, family: '"Share Tech Mono"' } } }
+      }
+    }
+  });
+}
+function closeModal(){
+  $('modal').classList.add('hidden'); $('modal').classList.remove('flex');
+  if (modalChartInst){ modalChartInst.destroy(); modalChartInst = null; }
+}
+$('mClose').addEventListener('click', closeModal);
+$('mClose2').addEventListener('click', closeModal);
+$('modal').addEventListener('click', e => { if (e.target === $('modal')) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+$('histQ').addEventListener('input', renderHist);
+$('histReload').addEventListener('click', () => {
+  $('histLoad').classList.remove('hidden'); $('histLoad').classList.add('flex');
+  $('histTableWrap').classList.add('hidden'); $('histEmpty').classList.add('hidden');
+  setTimeout(() => {
+    $('histLoad').classList.add('hidden'); $('histLoad').classList.remove('flex');
+    renderHist(); renderStats(true);
+  }, enhActive() ? 450 : 50);
+});
+
+/* ── tabs ── */
+const TAB_ON  = 'px-4 py-1.5 font-orbitron text-[0.5rem] font-bold tracking-[0.12em] rounded cursor-pointer transition-all duration-200 bg-dm-red text-dm-bg';
+const TAB_OFF = 'px-4 py-1.5 font-orbitron text-[0.5rem] font-bold tracking-[0.12em] rounded cursor-pointer transition-all duration-200 text-dm-muted2 bg-transparent hover:text-dm-text';
+function showTab(which){
+  const live = which === 'live';
+  $('viewLive').classList.toggle('hidden', !live);
+  $('viewHist').classList.toggle('hidden', live);
+  $('tabLive').className = live ? TAB_ON : TAB_OFF;
+  $('tabHist').className = live ? TAB_OFF : TAB_ON;
+  if (!live){ renderHist(); renderStats(true); }
+}
+$('tabLive').addEventListener('click', () => showTab('live'));
+$('tabHist').addEventListener('click', () => showTab('hist'));
+
+/* ── toggle mejoras ── */
+$('tgl').addEventListener('click', () => {
+  enhanced = !enhanced;
+  $('tgl').setAttribute('aria-checked', String(enhanced));
+  $('tglTrack').classList.toggle('bg-dm-red', enhanced);
+  $('tglTrack').classList.toggle('bg-dm-border2', !enhanced);
+  $('tglKnob').style.transform = enhanced ? 'translateX(16px)' : 'translateX(0)';
+  $('tglState').textContent = enhanced ? 'ON' : 'OFF';
+  $('tglState').classList.toggle('text-dm-red', enhanced);
+  $('tglState').classList.toggle('text-dm-muted2', !enhanced);
+  if (!enhActive()){
+    applyPlain();
+    chronoEl.classList.add('invisible');
+  }
+  chart.update('none');
+});
+
+/* ── init ── */
+initChart();
+renderHistHead();
+render(0, 0, 0);
+requestAnimationFrame(frame);
+if (RM){
+  enhanced = false;
+  $('tgl').setAttribute('aria-checked', 'false');
+  $('tglTrack').classList.remove('bg-dm-red'); $('tglTrack').classList.add('bg-dm-border2');
+  $('tglKnob').style.transform = 'translateX(0)';
+  $('tglState').textContent = 'OFF';
+  $('tglState').classList.remove('text-dm-red'); $('tglState').classList.add('text-dm-muted2');
+}
+</script>
+</body>
+</html>
