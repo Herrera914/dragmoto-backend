@@ -98,6 +98,12 @@ const getRuns = async (req, res) => {
     }
 };
 
+// La app guarda 0 cuando el run no llegó a esa marca: para los mejores
+// tiempos se cuenta como "sin dato" ($min ignora null, pero no 0)
+const mejorTiempo = (campo) => ({
+    $min: { $cond: [{ $gt: [campo, 0] }, campo, null] }
+});
+
 // GET /api/runs/stats — estadísticas globales
 const getStats = async (req, res) => {
     try {
@@ -108,10 +114,10 @@ const getStats = async (req, res) => {
                     _id:                null,
                     totalRuns:          { $sum: 1 },
                     bestTopSpeed:       { $max: '$top_speed' },
-                    bestZeroTo100:      { $min: '$zero_to_100' },
-                    bestHundredMeters:  { $min: '$hundred_meters' },
-                    bestEighthMile:     { $min: '$eighth_mile' },
-                    bestQuarterMile:    { $min: '$quarter_mile' },
+                    bestZeroTo100:      mejorTiempo('$zero_to_100'),
+                    bestHundredMeters:  mejorTiempo('$hundred_meters'),
+                    bestEighthMile:     mejorTiempo('$eighth_mile'),
+                    bestQuarterMile:    mejorTiempo('$quarter_mile'),
                     avgTopSpeed:        { $avg: '$top_speed' }
                 }
             }

@@ -1044,9 +1044,9 @@ app.service('Api', function($http) {
   this.del   = function(id) { return $http.delete('/api/runs/'+id); };
 });
 
-/* segundos con 2 decimales o "—" */
+/* segundos con 2 decimales o "—" (0 = la moto no llegó a esa marca) */
 app.filter('secs', function() {
-  return function(v) { return (v === null || v === undefined || v === '' || isNaN(v)) ? '—' : parseFloat(v).toFixed(2); };
+  return function(v) { return (v === null || v === undefined || v === '' || isNaN(v) || parseFloat(v) <= 0) ? '—' : parseFloat(v).toFixed(2); };
 });
 
 /* filas de tiempos de un run (tests custom de la app o los estándar) */
