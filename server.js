@@ -5,6 +5,7 @@ const http      = require('http');
 const { Server} = require('socket.io');
 const cors      = require('cors');
 const path      = require('path');
+const mongoose  = require('mongoose');
 const connectDB = require('./config/database');
 const runRoutes = require('./routes/runs');
 
@@ -21,6 +22,24 @@ const PORT = process.env.PORT || 3000;
 // Solo puede haber una moto registrada a la vez.
 let androidSocketId = null;
 let pendingCommand   = null; // 'start' cuando el dashboard presiona PREPARAR
+
+// La app Android ahora usa polling HTTP (GET /api/telemetry/command),
+// así que la moto cuenta como conectada si hizo poll hace poco.
+const POLL_TIMEOUT_MS = 15000;
+let lastPollAt = 0;
+let motoEstabaConectada = false;
+const motoConectada = () =>
+    androidSocketId !== null || Date.now() - lastPollAt < POLL_TIMEOUT_MS;
+
+function notificarEstadoMoto() {
+    const ahora = motoConectada();
+    if (ahora !== motoEstabaConectada) {
+        motoEstabaConectada = ahora;
+        console.log(ahora ? '📱 Moto conectada' : '📴 Moto desconectada');
+        io.emit('moto_status', { conectada: ahora });
+    }
+}
+setInterval(notificarEstadoMoto, 5000);
 
 // ── Base de datos ──────────────────────────────────────────────────
 connectDB();
@@ -45,7 +64,8 @@ app.get('/api/health', (req, res) => {
         status       : 'ok',
         server       : 'DragMoto API v2',
         timestamp    : new Date().toISOString(),
-        moto_conectada: androidSocketId !== null
+        moto_conectada: motoConectada(),
+        db_conectada : mongoose.connection.readyState === 1
     });
 });
 
@@ -61,14 +81,17 @@ app.post('/api/telemetry/prepare', (req, res) => {
 app.get('/api/telemetry/command', (req, res) => {
     const cmd    = pendingCommand;
     pendingCommand = null;
+    lastPollAt     = Date.now();
+    notificarEstadoMoto();
     res.json({ command: cmd });
 });
 
 // ── GET /api/telemetry/status — estado de conexión de la moto ─────
 app.get('/api/telemetry/status', (req, res) => {
     res.json({
-        moto_conectada: androidSocketId !== null,
-        socket_id     : androidSocketId
+        moto_conectada: motoConectada(),
+        socket_id     : androidSocketId,
+        ultimo_poll   : lastPollAt || null
     });
 });
 
@@ -92,7 +115,7 @@ io.on('connection', (socket) => {
             socket.emit('register_ok', { mensaje: 'Moto registrada en el servidor' });
 
             // Notifica al dashboard que la moto está conectada
-            socket.broadcast.emit('moto_status', { conectada: true });
+            notificarEstadoMoto();
         } else {
             console.log(`🖥️  Dashboard conectado: ${socket.id}`);
         }
@@ -120,8 +143,8 @@ io.on('connection', (socket) => {
         if (socket.id === androidSocketId) {
             androidSocketId = null;
             console.log(`📴 Moto desconectada: ${socket.id}`);
-            // Notifica al dashboard
-            io.emit('moto_status', { conectada: false });
+            // Notifica al dashboard (sigue "conectada" si hace polling HTTP)
+            notificarEstadoMoto();
         } else {
             console.log(`📴 Dashboard desconectado: ${socket.id}`);
         }

@@ -31,7 +31,13 @@ const uploadRun = async (req, res) => {
                 zero_to_80:        data.zero_to_80,
                 zero_to_100:       data.zero_to_100,
                 zero_to_120:       data.zero_to_120,
+                sixty_to_hundred:  data.sixty_to_hundred,
+                hundred_meters:    data.hundred_meters,
+                eighth_mile:       data.eighth_mile,
                 quarter_mile:      data.quarter_mile,
+                one_km:            data.one_km,
+                custom_speed_results:    data.custom_speed_results,
+                custom_distance_results: data.custom_distance_results,
                 trap_speed_quarter:data.trap_speed_quarter,
                 launch_quality:    data.launch_quality,
                 synced_at:         saved.synced_at

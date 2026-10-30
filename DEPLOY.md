@@ -28,9 +28,15 @@ En la carpeta dragmoto-backend:
 
 ### 5. Configurar variables de entorno en Railway
 En el panel de Railway → tu proyecto → Variables:
-  PORT       = 3000
   MONGO_URI  = (tu URL de MongoDB Atlas)
-  JWT_SECRET = dragmoto_clave_secreta_2025
+
+No pongas PORT: Railway lo asigna solo y el servidor lo lee de process.env.PORT.
+
+### 5b. Permitir a Railway entrar a MongoDB Atlas
+Railway no tiene IP fija. En Atlas → Network Access → Add IP Address
+→ "Allow access from anywhere" (0.0.0.0/0). Verifica también que el
+cluster no esté pausado. Si Mongo falla, el servidor sigue arriba y
+reintenta cada 10 s; revisa "db_conectada" en /api/health.
 
 ### 6. Railway detecta automáticamente Node.js y ejecuta:
   npm install
