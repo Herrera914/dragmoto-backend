@@ -3,522 +3,677 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#07080c">
 <title>DragMoto — Telemetría</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-tailwind.config = {
-  theme: {
-    extend: {
-      colors: {
-        dm: {
-          bg: '#060608',
-          s1: '#0a0a0f',
-          s2: '#0e0e16',
-          s3: '#14141e',
-          s4: '#1a1a28',
-          border: '#1e1e32',
-          border2: '#2a2a40',
-          border3: '#353550',
-          red: '#f43f5e',
-          redGlow: '#ff1744',
-          redDeep: '#e11d48',
-          orange: '#ff6b00',
-          orange2: '#ff9500',
-          blue: '#00b4ff',
-          blueSoft: '#38bdf8',
-          green: '#00e676',
-          greenSoft: '#4ade80',
-          yellow: '#ffd600',
-          text: '#e8eaf0',
-          muted: '#454560',
-          muted2: '#6b6b8a',
-          muted3: '#8888a0',
-        }
-      },
-      fontFamily: {
-        orbitron: ['Orbitron', 'monospace'],
-        rajdhani: ['Rajdhani', 'sans-serif'],
-        mono: ['"Share Tech Mono"', 'monospace'],
-      }
-    }
-  }
-}
-</script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-html{height:100%}
-body{min-height:100%;overflow-x:hidden}
-
-body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.05) 2px,rgba(0,0,0,0.05) 4px);pointer-events:none;z-index:9999}
-
-.dgrid-live{display:grid;gap:1rem}
-@media(min-width:1024px){.dgrid-live{grid-template-columns:280px 1fr 220px;grid-template-rows:auto auto}}
-@media(min-width:1024px){.pvel-lg{grid-column:1;grid-row:1/3}.pspr-lg{grid-column:3;grid-row:1/3}.pchart-lg{grid-column:2;grid-row:2}.pmets-lg{grid-column:2;grid-row:1}}
-
-/* ── velocímetro LED ── */
-#gaugeHalo{filter:blur(10px)}
-
-/* ── motor en vivo: animaciones de estado ── */
+/* ════════════════════════════════════════════════════════════
+   TOKENS — misma semántica de color que la app Android:
+   verde = arranque/OK, ámbar = medio, rojo = sprint/alto,
+   azul = aceleración/trap, amarillo = cronómetro.
+   ════════════════════════════════════════════════════════════ */
 :root{
-  --ease-out-quart: cubic-bezier(0.25,1,0.5,1);
-  --ease-out-quint: cubic-bezier(0.22,1,0.36,1);
+  --bg:#07080c; --s1:#0c0e14; --s2:#11141c; --s3:#171b26; --s4:#1e2331;
+  --line:#222839; --line2:#2e3548;
+  --text:#eef0f6; --muted:#8b91a8; --dim:#5c6278;
+  --red:#ff3b5c; --red-deep:#e11d48; --amber:#ffb020; --orange:#ff7a1a;
+  --green:#19e68c; --blue:#2bb8ff; --yellow:#ffe14d;
+  --ease:cubic-bezier(0.22,1,0.36,1);
+  --ease-q:cubic-bezier(0.25,1,0.5,1);
+  --r:14px;
+  --f-num:'Orbitron',monospace; --f-txt:'Rajdhani',sans-serif; --f-mono:'Share Tech Mono',monospace;
 }
-@keyframes flashRow{0%{background-color:rgba(244,63,94,.30);border-color:rgba(244,63,94,.8)}100%{background-color:rgba(244,63,94,.05);border-color:rgba(244,63,94,.3)}}
-.flash-row{animation:flashRow .9s var(--ease-out-quart) both}
-@keyframes popVal{0%{transform:scale(1.4)}100%{transform:scale(1)}}
-.pop-val{display:inline-block;animation:popVal .45s var(--ease-out-quint) both}
-@keyframes chipIn{0%{transform:scale(.55);opacity:.2}100%{transform:scale(1);opacity:1}}
-.chip-in{animation:chipIn .35s var(--ease-out-quint) both}
-@keyframes bannerUp{from{transform:translate(-50%,18px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
-.banner-up{animation:bannerUp .45s var(--ease-out-quint) both}
-@keyframes rowIn{0%{background-color:rgba(244,63,94,.22)}100%{background-color:transparent}}
-.row-in td{animation:rowIn 1.4s var(--ease-out-quart) both}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{height:100%;-webkit-text-size-adjust:100%}
+body{
+  min-height:100%;overflow-x:hidden;color:var(--text);font-family:var(--f-txt);font-size:15px;
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(255,59,92,.07), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(43,184,255,.05), transparent 60%),
+    var(--bg);
+  background-attachment:fixed;
+}
+body::before{ /* rejilla técnica estática */
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:-1;
+  background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);
+  background-size:48px 48px;
+  mask-image:linear-gradient(180deg,#000 0%,transparent 70%);
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+[ng-cloak],[ng\:cloak],.ng-cloak,.ng-hide{display:none!important}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.mono{font-family:var(--f-mono)}
+.label{font:700 12px/1 var(--f-txt);letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.unit{font:500 12px/1 var(--f-mono);color:var(--muted);letter-spacing:.08em}
+.t-red{color:var(--red)} .t-green{color:var(--green)} .t-blue{color:var(--blue)} .t-amber{color:var(--amber)}
+.t-orange{color:var(--orange)} .t-yellow{color:var(--yellow)} .t-muted{color:var(--muted)} .t-dim{color:var(--dim)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
+/* ── header ───────────────────────────────────────────────── */
+.topbar{
+  position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:10px clamp(16px,3vw,28px);
+  background:rgba(7,8,12,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.brand-mark{
+  width:34px;height:34px;display:grid;place-items:center;font:900 11px var(--f-num);color:var(--red);letter-spacing:.06em;
+  border:2px solid var(--red);background:rgba(255,59,92,.08);
+  clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%);
+}
+.brand-name{font:900 15px var(--f-num);letter-spacing:.2em}
+.brand-name b{color:var(--red);font-weight:900}
+.tabs{position:relative;display:grid;grid-template-columns:1fr 1fr;background:var(--s1);border:1px solid var(--line);border-radius:10px;padding:3px;min-width:240px}
+.tabs-ind{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:7px;background:var(--red);box-shadow:0 0 18px rgba(255,59,92,.35);transition:transform .35s var(--ease)}
+.tabs[data-tab="historial"] .tabs-ind{transform:translateX(100%)}
+.tab{position:relative;z-index:1;padding:9px 16px;font:700 11px var(--f-num);letter-spacing:.14em;color:var(--muted);border-radius:7px;transition:color .25s}
+.tab[aria-selected="true"]{color:#12030a}
+.tab:not([aria-selected="true"]):hover{color:var(--text)}
+.pills{display:flex;gap:8px;margin-left:auto}
+.pill{display:flex;align-items:center;gap:7px;padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:var(--s1);font:600 13px var(--f-txt);letter-spacing:.04em;color:var(--muted);transition:border-color .3s,color .3s}
+.pill.on{border-color:rgba(25,230,140,.35);color:var(--text)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex:none;transition:background .3s,box-shadow .3s}
+.pill.on .dot{background:var(--green);box-shadow:0 0 10px var(--green);animation:breathe 2.4s ease-in-out infinite}
+.pill.bad .dot{background:var(--red);box-shadow:0 0 10px var(--red)}
+@keyframes breathe{50%{opacity:.45}}
+@media (max-width:720px){
+  .topbar{gap:10px}
+  .brand{order:1} .pills{order:2;gap:6px} .tabs{order:3;width:100%}
+  .pill-txt-long{display:none}
+  .pill{padding:5px 9px;font-size:12px;gap:6px}
+  .brand-mark{width:30px;height:30px;font-size:10px} .brand-name{font-size:13px;letter-spacing:.16em}
+}
+
+/* ── layout ───────────────────────────────────────────────── */
+main{position:relative;padding:clamp(12px,2.2vw,24px);max-width:1680px;margin:0 auto}
+.view > *{animation:rise .55s var(--ease) both;animation-delay:calc(var(--i,0) * 70ms)}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.card{
+  position:relative;border-radius:var(--r);padding:18px;
+  background:linear-gradient(180deg,var(--s2),var(--s1));
+  border:1px solid var(--line);
+}
+.card::before{ /* filo de luz superior */
+  content:'';position:absolute;left:18px;right:18px;top:-1px;height:1px;
+  background:linear-gradient(90deg,transparent,var(--edge,rgba(255,59,92,.45)),transparent);
+}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+
+.live{display:grid;gap:16px}
+@media (min-width:1180px){
+  .live{grid-template-columns:330px minmax(0,1fr) 320px;grid-template-areas:"cock main slip"}
+  .a-cock{grid-area:cock} .a-main{grid-area:main} .a-slip{grid-area:slip}
+}
+@media (min-width:760px) and (max-width:1179px){
+  .live{grid-template-columns:330px minmax(0,1fr);grid-template-areas:"cock main" "slip slip"}
+  .a-cock{grid-area:cock} .a-main{grid-area:main} .a-slip{grid-area:slip}
+}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+
+/* ── velocímetro ──────────────────────────────────────────── */
+.gauge-card{display:flex;flex-direction:column;align-items:center}
+.gauge{position:relative;width:min(100% - 36px,270px);aspect-ratio:1;margin:8px 0 4px}
+.gauge svg{width:100%;height:100%;overflow:visible}
+#gaugeHalo{filter:blur(9px);transition:opacity .4s}
+.gauge-read{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:6px}
+#velNum{font:900 clamp(38px,4.2vw,50px)/1 var(--f-num);font-variant-numeric:tabular-nums;color:var(--green);text-shadow:0 0 24px currentColor}
+.gauge-max{margin-top:-6px;display:flex;gap:18px}
+.gauge-max div{text-align:center}
+.gauge-max .num{font-size:17px;font-weight:700;margin-top:6px}
+
+/* ── árbol de luces + PREPARAR ───────────────────────────── */
+.tree-card{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center}
+.tree{display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 14px;background:#05060a;border:1px solid var(--line);border-radius:12px}
+.tree-row{display:flex;gap:7px}
+.lamp{width:18px;height:18px;border-radius:50%;background:var(--c);opacity:.12;transition:opacity .25s,box-shadow .25s}
+.lamp.sm{width:12px;height:12px}
+.l-pre,.l-stage{--c:#dfe8ff}
+.l-a1,.l-a2,.l-a3{--c:var(--amber)}
+.l-go{--c:var(--green)} .l-red{--c:var(--red)}
+.lit{opacity:1;box-shadow:0 0 12px var(--c),0 0 3px var(--c)}
+.tree[data-state="prestage"] .l-pre,
+.tree[data-state="stage"] .l-pre,.tree[data-state="stage"] .l-stage,
+.tree[data-state="countdown"] .l-pre,.tree[data-state="countdown"] .l-stage,
+.tree[data-state="go"] .l-pre,.tree[data-state="go"] .l-stage,.tree[data-state="go"] .l-go{opacity:1;box-shadow:0 0 12px var(--c),0 0 3px var(--c)}
+.tree[data-state="stage"] .l-stage{animation:blink .7s steps(2,jump-none) infinite}
+.tree[data-state="countdown"] .l-a1,.tree[data-state="countdown"] .l-a2,.tree[data-state="countdown"] .l-a3,.tree[data-state="countdown"] .l-go{animation:lampOn .12s linear forwards}
+.tree[data-state="countdown"] .l-a2{animation-delay:.4s}
+.tree[data-state="countdown"] .l-a3{animation-delay:.8s}
+.tree[data-state="countdown"] .l-go{animation:lampOn .12s linear 1.2s forwards,breathe 1.6s ease-in-out 1.5s infinite}
+.tree[data-state="fault"] .l-red{animation:lampOn .1s forwards,blink .5s steps(2,jump-none) .1s 6}
+@keyframes lampOn{to{opacity:1;box-shadow:0 0 14px var(--c),0 0 3px var(--c)}}
+@keyframes blink{50%{opacity:.15}}
+.prep{display:flex;flex-direction:column;gap:10px;min-width:0}
+.prep-state{font:600 14px var(--f-txt);color:var(--muted);min-height:18px}
+.btn-go{
+  position:relative;overflow:hidden;width:100%;padding:16px 14px;border-radius:12px;
+  font:900 14px var(--f-num);letter-spacing:.14em;color:#04170d;
+  background:linear-gradient(180deg,#3df5a6,var(--green));
+  box-shadow:0 0 0 1px rgba(25,230,140,.6),0 8px 30px -8px rgba(25,230,140,.55);
+  transition:transform .15s var(--ease),box-shadow .25s,filter .25s;
+}
+.btn-go:hover{filter:brightness(1.07);box-shadow:0 0 0 1px rgba(25,230,140,.8),0 10px 36px -6px rgba(25,230,140,.7)}
+.btn-go:active{transform:scale(.97)}
+.btn-go::after{ /* destello al pasar */
+  content:'';position:absolute;top:0;bottom:0;width:40%;left:-60%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);transform:skewX(-20deg);
+}
+.btn-go:hover::after{animation:shine .8s var(--ease-q)}
+@keyframes shine{to{left:130%}}
+.btn-go[data-st="sending"]{background:linear-gradient(180deg,#ffc95a,var(--amber));box-shadow:0 0 0 1px rgba(255,176,32,.6),0 8px 30px -8px rgba(255,176,32,.5);cursor:wait;color:#1d1200}
+.btn-go[data-st="error"]{background:linear-gradient(180deg,#ff6d86,var(--red));box-shadow:0 0 0 1px rgba(255,59,92,.6),0 8px 30px -8px rgba(255,59,92,.5);color:#fff}
+.btn-go[data-st="sending"] .spin{display:inline-block}
+.spin{display:none;width:12px;height:12px;margin-right:8px;vertical-align:-1px;border:2px solid rgba(0,0,0,.25);border-top-color:#1d1200;border-radius:50%;animation:rot .7s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+/* ── tiles de métricas ───────────────────────────────────── */
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:560px){.tiles{grid-template-columns:1fr 1fr}.tiles .tile:last-child{grid-column:1/-1}}
+.tile{padding:16px;overflow:hidden}
+.tile .big{font:900 clamp(28px,3vw,38px)/1 var(--f-num);font-variant-numeric:tabular-nums;margin:12px 0 6px}
+.tile .foot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;font:500 13px var(--f-mono);color:var(--muted)}
+.bar{height:5px;border-radius:9px;background:var(--s4);overflow:hidden;margin-top:12px}
+.bar i{display:block;height:100%;width:100%;transform-origin:left;transform:scaleX(0);border-radius:9px;background:linear-gradient(90deg,var(--blue),var(--orange));box-shadow:0 0 10px rgba(43,184,255,.5)}
+#chrono.running{color:var(--yellow);text-shadow:0 0 18px rgba(255,225,77,.4)}
+
+/* ── pista (drag strip) ───────────────────────────────────── */
+.phase{display:inline-flex;align-items:center;gap:8px;padding:5px 10px;border-radius:999px;font:700 11px var(--f-num);letter-spacing:.14em;border:1px solid var(--line2);color:var(--muted)}
+.phase .dot{width:7px;height:7px}
+.phase[data-f="live"]{color:var(--green);border-color:rgba(25,230,140,.4);background:rgba(25,230,140,.06)}
+.phase[data-f="live"] .dot{background:var(--green);box-shadow:0 0 8px var(--green);animation:breathe 1s infinite}
+.phase[data-f="done"]{color:var(--red);border-color:rgba(255,59,92,.4);background:rgba(255,59,92,.06)}
+.phase[data-f="done"] .dot{background:var(--red)}
+.strip{padding:6px 4px 0}
+.strip-track{
+  position:relative;height:58px;border-radius:10px;overflow:visible;
+  background:
+    repeating-linear-gradient(90deg,transparent 0 22px,rgba(255,255,255,.05) 22px 34px) center/100% 2px no-repeat,
+    linear-gradient(180deg,#0a0c12,#06070b);
+  border:1px solid var(--line);
+}
+.strip-fill{position:absolute;inset:0;border-radius:10px;transform-origin:left;transform:scaleX(0);
+  background:linear-gradient(90deg,rgba(25,230,140,.0),rgba(25,230,140,.12) 40%,rgba(255,59,92,.22));}
+.strip-start{position:absolute;left:0;top:0;bottom:0;width:6px;border-radius:10px 0 0 10px;
+  background:repeating-linear-gradient(180deg,#fff 0 6px,#111 6px 12px);opacity:.7}
+.mk{position:absolute;top:-6px;bottom:-6px;width:0;border-left:2px dashed var(--line2);transition:border-color .3s}
+.mk span{position:absolute;top:-22px;left:0;transform:translateX(-50%);white-space:nowrap;font:600 12px var(--f-mono);color:var(--muted);transition:color .3s}
+.mk:last-of-type span{transform:translateX(-100%)}
+.mk.hit{border-left-color:var(--c)}
+.mk.hit span{color:var(--c)}
+.mk.flash::after{content:'';position:absolute;top:0;bottom:0;left:-14px;width:28px;background:radial-gradient(closest-side,var(--c),transparent);opacity:0;animation:mkflash .9s var(--ease-q)}
+@keyframes mkflash{0%{opacity:.9;transform:scaleX(2.4)}100%{opacity:0;transform:scaleX(1)}}
+.bike{position:absolute;top:50%;left:0;width:30px;height:30px;margin:-15px 0 0 -15px;display:grid;place-items:center;
+  border-radius:50%;background:var(--s3);border:2px solid var(--red);box-shadow:0 0 16px rgba(255,59,92,.6);z-index:2}
+.bike svg{width:16px;height:16px;fill:var(--text)}
+.strip-scale{display:flex;justify-content:space-between;margin-top:10px;font:500 12px var(--f-mono);color:var(--dim)}
+.strip-now{font:700 13px var(--f-mono);color:var(--text)}
+
+.chart-wrap{position:relative;height:190px}
+@media (min-width:1180px){.chart-wrap{height:220px}}
+
+/* ── timeslip ─────────────────────────────────────────────── */
+.slip{
+  --paper:#eef0f2;
+  position:relative;padding:0;border:0;background:none;max-width:420px;margin:0 auto;
+}
+.slip-paper{
+  position:relative;padding:22px 20px 20px;border-radius:6px;color:#14161d;background:var(--paper);
+  font-family:var(--f-mono);box-shadow:0 20px 50px -20px rgba(0,0,0,.8);
+  -webkit-mask:radial-gradient(circle 6px at 50% 0,#0000 98%,#000) 0 0/16px 51% repeat-x,radial-gradient(circle 6px at 50% 100%,#0000 98%,#000) 0 100%/16px 51% repeat-x;
+          mask:radial-gradient(circle 6px at 50% 0,#0000 98%,#000) 0 0/16px 51% repeat-x,radial-gradient(circle 6px at 50% 100%,#0000 98%,#000) 0 100%/16px 51% repeat-x;
+}
+.slip-slot{height:10px;margin:0 -6px -4px;border-radius:6px;background:#05060a;border:1px solid var(--line);position:relative;z-index:2}
+.slip.printing .slip-paper{animation:print 1s var(--ease) both}
+@keyframes print{from{clip-path:inset(0 0 100% 0);transform:translateY(-18px)}to{clip-path:inset(0 0 0 0);transform:none}}
+.slip-head{text-align:center;border-bottom:1px dashed #9aa0ad;padding-bottom:12px;margin-bottom:10px}
+.slip-head .t{font:900 14px var(--f-num);letter-spacing:.22em}
+.slip-head .t b{color:var(--red-deep)}
+.slip-head .s{font-size:12px;color:#565b69;margin-top:5px}
+.slip-veh{display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;color:#30343f}
+.slip-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 6px;margin:0 -6px;border-radius:4px;font-size:14px}
+.slip-row .k{color:#4a4f5c}
+.slip-row .v{font:700 15px var(--f-num);font-variant-numeric:tabular-nums}
+.slip-row .v.nil{color:#a3a8b4;font-weight:500}
+.slip-sec{font-size:11px;letter-spacing:.2em;color:#7a7f8c;margin:10px 0 4px;text-transform:uppercase}
+.slip-row.flash{animation:slipflash 1s var(--ease-q)}
+@keyframes slipflash{0%{background:rgba(225,29,72,.22)}100%{background:transparent}}
+.slip-foot{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;padding-top:12px;border-top:1px dashed #9aa0ad}
+.slip-foot div{text-align:center;padding:8px 4px;border-radius:6px;background:#e1e4e8}
+.slip-foot .k{font-size:11px;letter-spacing:.16em;color:#565b69}
+.slip-foot .v{font:900 22px var(--f-num);margin-top:4px;font-variant-numeric:tabular-nums}
+.slip-barcode{height:26px;margin-top:14px;opacity:.75;background:repeating-linear-gradient(90deg,#14161d 0 2px,transparent 2px 4px,#14161d 4px 5px,transparent 5px 8px,#14161d 8px 11px,transparent 11px 12px)}
+.slip-empty{text-align:center;color:#6b7080;font-size:13px;padding:6px 0 2px}
+
+/* ── toast ────────────────────────────────────────────────── */
+#banner{
+  position:fixed;left:50%;top:76px;z-index:60;transform:translateX(-50%);
+  display:flex;align-items:center;gap:14px;padding:12px 18px;border-radius:12px;max-width:calc(100% - 32px);
+  background:rgba(12,14,20,.95);border:1px solid rgba(255,59,92,.45);box-shadow:0 0 40px rgba(255,59,92,.2),0 20px 40px -10px #000;
+  backdrop-filter:blur(10px);
+}
+#banner.hidden{display:none}
+#banner.show{animation:toast .5s var(--ease) both}
+@keyframes toast{from{opacity:0;transform:translate(-50%,-16px) scale(.96)}to{opacity:1;transform:translate(-50%,0)}}
+#banner .ttl{font:900 11px var(--f-num);letter-spacing:.18em;color:var(--red);white-space:nowrap}
+#bannerBody{display:flex;flex-wrap:wrap;gap:4px 16px;font:500 14px var(--f-mono)}
+#bannerBody b{font-family:var(--f-num)}
+
+/* ── historial ────────────────────────────────────────────── */
+.hist{display:flex;flex-direction:column;gap:16px}
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+@media (max-width:1100px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:560px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stat{padding:16px}
+.stat .num{display:block;font-size:clamp(22px,2.2vw,28px);font-weight:900;margin-top:12px}
+.stat .unit{margin-left:4px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap}
+.search{position:relative;flex:1 1 260px}
+.search svg{position:absolute;left:14px;top:50%;width:16px;height:16px;transform:translateY(-50%);stroke:var(--muted);fill:none;stroke-width:2}
+.field{width:100%;padding:12px 14px 12px 40px;border-radius:10px;border:1px solid var(--line2);background:var(--s1);color:var(--text);font:600 15px var(--f-txt);transition:border-color .2s,box-shadow .2s}
+.field::placeholder{color:var(--dim)}
+.field:focus{outline:none;border-color:var(--red);box-shadow:0 0 0 3px rgba(255,59,92,.15)}
+select.field{padding-left:14px;flex:0 0 auto;width:auto;appearance:none;padding-right:34px;
+  background:var(--s1) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238b91a8' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat right 12px center}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 16px;border-radius:10px;border:1px solid var(--line2);background:var(--s1);
+  font:700 11px var(--f-num);letter-spacing:.12em;color:var(--muted);transition:border-color .2s,color .2s,background .2s}
+.btn:hover{border-color:var(--red);color:var(--text)}
+.btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2}
+.btn.loading svg{animation:rot .8s linear infinite}
+.btn-sm{padding:7px 11px;font-size:10px;border-radius:8px}
+.btn-danger:hover{border-color:var(--red);color:var(--red);background:rgba(255,59,92,.06)}
+
+.table-wrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--line);background:var(--s1)}
+table{width:100%;border-collapse:collapse;min-width:880px}
+th{position:sticky;top:0;background:var(--s3);text-align:left;padding:13px 14px;font:700 12px var(--f-txt);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap;border-bottom:1px solid var(--line2)}
+th.sort{cursor:pointer;user-select:none;transition:color .2s}
+th.sort:hover,th.sort.act{color:var(--text)}
+th .arr{display:inline-block;margin-left:5px;color:var(--red);transition:transform .2s}
+th .arr.up{transform:rotate(180deg)}
+td{padding:13px 14px;border-bottom:1px solid var(--line);font:500 14px var(--f-mono);white-space:nowrap}
+tbody tr{cursor:pointer;transition:background .15s}
+tbody tr:hover{background:rgba(255,59,92,.045)}
+tbody tr:last-child td{border-bottom:0}
+td.veh{font:700 15px var(--f-txt);color:var(--text)}
+td .num{font-size:14px;font-weight:700}
+.pb{display:inline-block;margin-left:6px;padding:2px 5px;border-radius:4px;font:700 9px var(--f-num);letter-spacing:.08em;color:#1b1300;background:var(--yellow);vertical-align:2px}
+.chip{display:inline-block;padding:4px 8px;border-radius:6px;font:700 10px var(--f-num);letter-spacing:.08em;border:1px solid var(--line2);color:var(--muted);background:var(--s3)}
+.chip.good{color:var(--green);border-color:rgba(25,230,140,.35);background:rgba(25,230,140,.07)}
+.chip.mid{color:var(--amber);border-color:rgba(255,176,32,.35);background:rgba(255,176,32,.07)}
+.chip.bad{color:var(--red);border-color:rgba(255,59,92,.35);background:rgba(255,59,92,.07)}
+.row-in td{animation:rowIn 1.6s var(--ease-q) both}
+@keyframes rowIn{0%{background:rgba(255,59,92,.25)}100%{background:transparent}}
+
+.cards{display:none;flex-direction:column;gap:10px}
+.rcard{display:grid;grid-template-columns:1fr auto;gap:6px 12px;padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:linear-gradient(180deg,var(--s2),var(--s1));text-align:left;width:100%;transition:border-color .2s,transform .15s}
+.rcard:active{transform:scale(.99)}
+.rcard:hover{border-color:var(--line2)}
+.rcard .veh{font:700 17px var(--f-txt)}
+.rcard .date{font:500 12px var(--f-mono);color:var(--muted)}
+.rcard .top{grid-row:1/3;grid-column:2;text-align:right;align-self:center}
+.rcard .top .num{font-size:22px;font-weight:900;color:var(--orange)}
+.rcard .times{grid-column:1/-1;display:flex;gap:16px;margin-top:6px;font:500 13px var(--f-mono);color:var(--muted)}
+.rcard .times b{color:var(--text);font-family:var(--f-num);font-weight:700}
+@media (max-width:760px){.table-wrap{display:none}.cards{display:flex}}
+
+.skel{height:52px;border-radius:10px;background:linear-gradient(90deg,var(--s2) 0%,var(--s3) 50%,var(--s2) 100%) 0 0/200% 100%;animation:shimmer 1.3s linear infinite}
+.skel + .skel{margin-top:8px}
+@keyframes shimmer{to{background-position:-200% 0}}
+.empty{display:flex;flex-direction:column;align-items:center;gap:14px;padding:56px 16px;text-align:center;color:var(--muted)}
+.empty svg{width:120px;height:auto;opacity:.8}
+.empty h3{font:700 18px var(--f-txt);color:var(--text);letter-spacing:.04em}
+.empty.err h3{color:var(--red)}
+
+/* ── modal detalle ────────────────────────────────────────── */
+.modal{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(3,4,7,.78);backdrop-filter:blur(6px);animation:fade .25s ease both}
+@keyframes fade{from{opacity:0}}
+.sheet{width:100%;max-width:880px;max-height:92vh;overflow-y:auto;border-radius:18px;border:1px solid var(--line2);background:var(--s1);box-shadow:0 30px 80px -20px #000;animation:sheet .4s var(--ease) both}
+@keyframes sheet{from{opacity:0;transform:translateY(24px) scale(.98)}}
+@media (max-width:640px){.modal{align-items:flex-end;padding:0}.sheet{border-radius:18px 18px 0 0;max-height:94vh}}
+.sheet-h{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:20px 22px;background:rgba(12,14,20,.96);border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
+.sheet-h h2{font:900 19px var(--f-num);letter-spacing:.08em}
+.sheet-h p{font:500 13px var(--f-mono);color:var(--muted);margin-top:6px}
+.x{width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:10px;border:1px solid var(--line2);color:var(--muted);transition:color .2s,border-color .2s}
+.x:hover{color:var(--red);border-color:var(--red)}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
+@media (max-width:640px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpis > div:last-child{grid-column:1/-1}}
+.kpis > div{background:var(--s2);padding:16px;text-align:center}
+.kpis .num{display:block;font-size:24px;font-weight:900;margin:10px 0 4px}
+.sheet-cols{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line)}
+@media (max-width:640px){.sheet-cols{grid-template-columns:1fr}}
+.sheet-cols > div{padding:20px 22px}
+.sheet-cols > div + div{border-left:1px solid var(--line)}
+@media (max-width:640px){.sheet-cols > div + div{border-left:0;border-top:1px solid var(--line)}}
+.trow{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);margin-top:7px;font:600 15px var(--f-txt);color:var(--muted)}
+.trow.has{color:var(--text);border-color:var(--hc);background:color-mix(in srgb,var(--hc) 7%,var(--bg))}
+.trow .num{font-size:15px;font-weight:700;color:var(--dim)}
+.trow.has .num{color:var(--hc)}
+.sheet-sec{padding:20px 22px;border-bottom:1px solid var(--line)}
+.sheet-f{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 22px;font:500 12px var(--f-mono);color:var(--dim)}
+
+/* ── demo ─────────────────────────────────────────────────── */
+.demo-btn{margin-top:4px;font:700 11px var(--f-num);letter-spacing:.12em;color:var(--blue);padding:8px;border-radius:8px;border:1px dashed rgba(43,184,255,.4)}
+.demo-btn:hover{background:rgba(43,184,255,.06)}
+
+/* ── movimiento reducido: todo cambia al instante ─────────── */
 @media (prefers-reduced-motion: reduce){
-  *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  *,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
-
-@keyframes pulse-dot{0%,100%{opacity:1;box-shadow:0 0 8px #00e676}50%{opacity:0.3;box-shadow:0 0 4px #00e676}}
-@keyframes spin{to{transform:rotate(360deg)}}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-
-.glow-red{text-shadow:0 0 20px rgba(244,63,94,0.5)}
-.glow-orange{text-shadow:0 0 16px rgba(255,107,0,0.4)}
-.glow-blue{text-shadow:0 0 16px rgba(0,180,255,0.4)}
-.glow-green{text-shadow:0 0 16px rgba(0,230,118,0.4)}
-.glow-yellow{text-shadow:0 0 16px rgba(255,214,0,0.4)}
-
-.fade-in{animation:fadeIn 0.4s ease both}
-
-[ng\:cloak],[ng-cloak],.ng-hide{display:none!important}
-.ng-hide-animate{transition:none!important}
-
-#speedChart{max-height:160px}
 </style>
 </head>
 
-<body ng-controller="AppCtrl" class="bg-dm-bg text-dm-text font-rajdhani min-h-screen">
+<body ng-controller="AppCtrl">
 
-<header class="sticky top-0 z-[500] flex items-center justify-between px-4 md:px-7 h-14 bg-dm-bg/95 backdrop-blur-xl border-b border-dm-border">
-  <div class="flex items-center gap-2.5">
-    <div class="w-8 h-8 border-2 border-dm-red grid place-items-center font-orbitron text-[0.55rem] font-black text-dm-red tracking-wider" style="clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);background:rgba(244,63,94,0.08)">DM</div>
-    <div class="font-orbitron text-sm font-black tracking-[0.18em]">DRAG<span class="text-dm-red">MOTO</span></div>
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark" aria-hidden="true">DM</div>
+    <div class="brand-name">DRAG<b>MOTO</b></div>
   </div>
-  <div class="flex gap-0.5 bg-dm-s1 border border-dm-border rounded-md p-0.5">
-    <button class="px-4 py-1.5 font-orbitron text-[0.5rem] font-bold tracking-[0.12em] rounded cursor-pointer transition-all duration-200" ng-class="tab==='live' ? 'bg-dm-red text-dm-bg' : 'text-dm-muted2 bg-transparent hover:text-dm-text'" ng-click="tab='live'">EN VIVO</button>
-    <button class="px-4 py-1.5 font-orbitron text-[0.5rem] font-bold tracking-[0.12em] rounded cursor-pointer transition-all duration-200" ng-class="tab==='historial' ? 'bg-dm-red text-dm-bg' : 'text-dm-muted2 bg-transparent hover:text-dm-text'" ng-click="tab='historial'">HISTORIAL</button>
-  </div>
-  <div class="flex items-center gap-2 font-mono text-[0.65rem] text-dm-muted2">
-    <div class="w-2 h-2 rounded-full transition-all duration-300" ng-class="enVivo ? 'bg-dm-green shadow-[0_0_8px_#00e676] animate-pulse' : 'bg-dm-muted'"></div>
-    <span>{{ stMsg }}</span>
+  <nav class="tabs" role="tablist" data-tab="{{ tab }}">
+    <span class="tabs-ind" aria-hidden="true"></span>
+    <button class="tab" role="tab" aria-selected="{{ tab==='live' }}" ng-click="tab='live'">EN VIVO</button>
+    <button class="tab" role="tab" aria-selected="{{ tab==='historial' }}" ng-click="tab='historial'">HISTORIAL</button>
+  </nav>
+  <div class="pills" ng-cloak>
+    <div class="pill" ng-class="server ? 'on' : 'bad'" title="Conexión del dashboard con el servidor">
+      <span class="dot"></span><span>Servidor</span><span class="pill-txt-long">{{ server ? 'en línea' : 'sin conexión' }}</span>
+    </div>
+    <div class="pill" ng-class="{on: motoConectada}" title="La moto consulta el servidor cada pocos segundos">
+      <span class="dot"></span><span>Moto</span><span class="pill-txt-long">{{ motoConectada ? 'conectada' : 'desconectada' }}</span>
+    </div>
   </div>
 </header>
 
+<main>
+
 <!-- ══ EN VIVO ══════════════════════════════════════════════════ -->
-<div class="p-3 md:p-4 lg:p-5" ng-show="tab==='live'">
-  <div class="dgrid-live">
+<section class="view live" ng-show="tab==='live'" aria-label="Telemetría en vivo">
 
-    <!-- Velocímetro -->
-    <div class="pvel-lg bg-dm-s2 border border-dm-border rounded-xl p-4 md:p-5 flex flex-col items-center gap-3 relative overflow-hidden">
-      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-dm-red/40 to-transparent"></div>
-      <div class="font-orbitron text-[0.45rem] font-bold tracking-[0.2em] text-dm-muted">VELOCIDAD</div>
-
-      <!-- Velocímetro LED (40 segmentos, manejado por el motor en vivo) -->
-      <div class="relative w-[240px] h-[240px]">
-        <svg class="w-full h-full" viewBox="0 0 240 240">
-          <circle id="gaugeHalo" cx="120" cy="120" r="86" fill="none" stroke="#00e676" stroke-width="14"
+  <!-- Cabina: velocímetro + árbol -->
+  <div class="col a-cock" style="--i:0">
+    <div class="card gauge-card" style="--edge:rgba(25,230,140,.4)">
+      <div class="card-h" style="width:100%"><span class="label">Velocidad</span><span class="unit">km/h</span></div>
+      <div class="gauge">
+        <svg viewBox="0 0 240 240" aria-hidden="true">
+          <circle id="gaugeHalo" cx="120" cy="120" r="86" fill="none" stroke="#19e68c" stroke-width="14"
                   stroke-dasharray="0 540.36" transform="rotate(135 120 120)" opacity="0"/>
           <g id="gaugeBars"></g>
           <g id="gaugeLabels"></g>
         </svg>
-        <div class="absolute inset-0 flex flex-col items-center justify-center">
-          <div id="velNum" class="font-orbitron text-[2.9rem] font-black leading-none tabular-nums" style="color:#00e676">0.0</div>
-          <div class="font-mono text-[0.65rem] text-dm-muted2 tracking-[0.18em] mt-1">km/h</div>
-          <div id="chrono" class="font-mono text-[0.7rem] text-dm-yellow tabular-nums tracking-wider mt-1.5 invisible">T+ 0.00 s</div>
+        <div class="gauge-read">
+          <div id="velNum" aria-live="off">0.0</div>
+          <div class="unit" style="margin-top:8px">KM/H</div>
         </div>
       </div>
+      <div class="gauge-max">
+        <div><div class="label">Máxima</div><div class="num t-orange" id="maxVelTxt">0.0</div></div>
+        <div><div class="label">Trap ¼</div><div class="num t-blue" ng-cloak>{{ trap ? (trap | number:1) : '—' }}</div></div>
+      </div>
+    </div>
 
-      <div class="font-mono text-[0.65rem] text-dm-muted2 text-center -mt-2">MÁX <b id="maxVelTxt" class="text-dm-orange2 tabular-nums">0.0</b> km/h</div>
-      <div class="w-full grid grid-cols-2 gap-2">
-        <div class="bg-dm-s3 border border-dm-border rounded-lg p-2.5 text-center">
-          <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.14em] text-dm-muted mb-1">TRAP ¼ MI</div>
-          <div class="font-orbitron text-lg font-black" style="color:var(--orange2)">
-            <span ng-if="trap">{{ trap | number:1 }}</span>
-            <span ng-if="!trap" class="text-dm-muted">—</span>
+    <div class="card" style="--edge:rgba(255,176,32,.45)">
+      <div class="card-h"><span class="label">Salida</span><span class="unit">árbol</span></div>
+      <div class="tree-card">
+        <div class="tree" id="tree" data-state="off" role="img" aria-label="Árbol de luces de salida">
+          <div class="tree-row"><span class="lamp sm l-pre"></span><span class="lamp sm l-pre"></span></div>
+          <div class="tree-row"><span class="lamp sm l-stage"></span><span class="lamp sm l-stage"></span></div>
+          <span class="lamp l-a1"></span>
+          <span class="lamp l-a2"></span>
+          <span class="lamp l-a3"></span>
+          <span class="lamp l-go"></span>
+          <span class="lamp l-red"></span>
+        </div>
+        <div class="prep">
+          <div class="prep-state" ng-cloak aria-live="polite">{{ prepTexto() }}</div>
+          <button class="btn-go" data-st="{{ prepSt }}" ng-click="preparar()" ng-disabled="prepSt==='sending'">
+            <span class="spin" aria-hidden="true"></span>
+            <span ng-if="prepSt===''">PREPARAR MOTO</span>
+            <span ng-if="prepSt==='sending'" ng-cloak>ENVIANDO</span>
+            <span ng-if="prepSt==='ok'" ng-cloak>✓ LISTA</span>
+            <span ng-if="prepSt==='error'" ng-cloak>✕ REINTENTAR</span>
+          </button>
+          <button class="demo-btn" ng-if="demo" ng-click="simular()" ng-cloak>▶ SIMULAR RUN (DEMO)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Centro: métricas + pista + curva -->
+  <div class="col a-main" style="--i:1">
+    <div class="tiles">
+      <div class="card tile" style="--edge:rgba(43,184,255,.45)">
+        <span class="label">Aceleración</span>
+        <div class="big t-blue" id="accelVal">0.00</div>
+        <span class="unit">m/s²</span>
+        <div class="bar"><i id="accelBar"></i></div>
+        <div class="foot"><span>pico</span><span><b id="accelPeak" class="t-blue">0.00</b> m/s²</span></div>
+      </div>
+      <div class="card tile" style="--edge:rgba(25,230,140,.45)">
+        <span class="label">Recorrido</span>
+        <div class="big t-green" id="distVal">0</div>
+        <span class="unit">metros</span>
+        <div class="foot"><span>objetivo</span><span>402 m</span></div>
+      </div>
+      <div class="card tile" style="--edge:rgba(255,225,77,.45)">
+        <span class="label">Cronómetro</span>
+        <div class="big t-muted" id="chrono">0.00</div>
+        <span class="unit">segundos desde la salida</span>
+      </div>
+    </div>
+
+    <div class="card" style="--edge:rgba(255,59,92,.45)">
+      <div class="card-h">
+        <span class="label">Pista · ¼ de milla</span>
+        <span class="phase" data-f="{{ fase }}" ng-cloak><span class="dot"></span>{{ fase==='live' ? 'EN VIVO' : fase==='done' ? 'RUN COMPLETADO' : 'EN ESPERA' }}</span>
+      </div>
+      <div class="strip" style="padding-top:26px">
+        <div class="strip-track">
+          <div class="strip-fill" id="stripFill"></div>
+          <div class="strip-start" aria-hidden="true"></div>
+          <div class="mk" id="m100" style="left:24.88%;--c:var(--green)"><span>100 m</span></div>
+          <div class="mk" id="m201" style="left:50%;--c:var(--amber)"><span>⅛ mi</span></div>
+          <div class="mk" id="m402" style="left:100%;--c:var(--red)"><span>¼ mi</span></div>
+          <div class="bike" id="stripBike" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M5 16a3 3 0 1 0 0 .01zM19 16a3 3 0 1 0 0 .01zM5 14.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm14 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zM14 6h3l1.5 3.2 1.8-.7.6 1.5-2.2.9L21 14h-2.2l-1.5-3.1-3.3 3.6H9.6L8 11H5.5V9.5H9l1.5 3h2.2l2.2-2.5L13.6 7.5H12V6h2z"/></svg>
           </div>
         </div>
-        <div class="bg-dm-s3 border border-dm-border rounded-lg p-2.5 text-center">
-          <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.14em] text-dm-muted mb-1">DISTANCIA</div>
-          <div class="font-orbitron text-lg font-black text-dm-blue tabular-nums"><span id="distMini">0</span><span class="text-[0.5rem] text-dm-muted2 ml-0.5">m</span></div>
-        </div>
-      </div>
-
-      <!-- Indicador conexión moto -->
-      <div class="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-300"
-           ng-class="motoConectada ? 'border-dm-green/40 bg-dm-green/5' : 'border-dm-border bg-dm-s3'">
-        <div class="w-2 h-2 rounded-full flex-shrink-0 transition-all duration-300"
-             ng-class="motoConectada ? 'bg-dm-green shadow-[0_0_6px_#00e676] animate-pulse' : 'bg-dm-muted'"></div>
-        <span class="font-mono text-[0.6rem]"
-              ng-class="motoConectada ? 'text-dm-green' : 'text-dm-muted2'">
-          {{ motoConectada ? 'Moto conectada' : 'Moto desconectada' }}
-        </span>
-      </div>
-
-      <!-- Botón PREPARAR MOTO -->
-      <button class="w-full py-3 rounded-lg font-orbitron text-sm font-black tracking-[0.12em] cursor-pointer transition-all duration-200 border"
-              ng-class="{
-                'bg-dm-green/90 border-dm-green text-dm-bg hover:bg-dm-green': prepSt === '',
-                'bg-dm-orange/80 border-dm-orange text-dm-bg cursor-wait':     prepSt === 'sending',
-                'bg-dm-green border-dm-green text-dm-bg':                       prepSt === 'ok',
-                'bg-dm-red/80 border-dm-red text-white':                        prepSt === 'error'
-              }"
-              ng-click="preparar()"
-              ng-disabled="prepSt === 'sending'">
-        <span ng-if="prepSt === ''">⚡ PREPARAR MOTO</span>
-        <span ng-if="prepSt === 'sending'">ENVIANDO...</span>
-        <span ng-if="prepSt === 'ok'">✓ LISTO</span>
-        <span ng-if="prepSt === 'error'">✕ ERROR</span>
-      </button>
-
-      <!-- Feedback -->
-      <div class="font-mono text-[0.6rem] text-center transition-all duration-200"
-           ng-if="prepMsg && prepSt !== 'sending'"
-           ng-class="prepSt === 'ok' ? 'text-dm-green' : 'text-dm-red'">
-        {{ prepMsg }}
+        <div class="strip-scale"><span>SALIDA</span><span class="strip-now"><span id="distMini">0</span> m</span><span>402 m</span></div>
       </div>
     </div>
 
-    <!-- Métricas -->
-    <div class="pmets-lg grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden transition-all duration-300 hover:border-dm-blue/40" ng-class="{ 'border-dm-blue/50 shadow-[0_0_15px_rgba(0,180,255,0.1)]': enVivo }">
-        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-dm-blue transition-opacity duration-300" ng-class="enVivo ? 'opacity-100' : 'opacity-0'"></div>
-        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.18em] text-dm-muted mb-2.5">ACELERACIÓN</div>
-        <div id="accelVal" class="font-orbitron text-3xl font-black text-dm-blue glow-blue leading-none tabular-nums">0.00</div>
-        <div class="font-mono text-[0.6rem] text-dm-muted2 mt-1">m/s²</div>
-        <div class="w-full h-1 bg-dm-border2 rounded-full mt-2.5 overflow-hidden">
-          <div id="accelBar" class="h-full w-full bg-gradient-to-r from-dm-blue to-dm-orange rounded-full shadow-[0_0_6px_rgba(0,180,255,0.5)] origin-left" style="transform:scaleX(0)"></div>
-        </div>
-        <div class="font-mono text-[0.55rem] text-dm-muted2 mt-2">PICO: <span id="accelPeak" class="tabular-nums">0.00</span> m/s²</div>
-      </div>
-
-      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden transition-all duration-300 hover:border-dm-green/40" ng-class="{ 'border-dm-green/50 shadow-[0_0_15px_rgba(0,230,118,0.1)]': enVivo }">
-        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-dm-green transition-opacity duration-300" ng-class="enVivo ? 'opacity-100' : 'opacity-0'"></div>
-        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.18em] text-dm-muted mb-2.5">RECORRIDO</div>
-        <div id="distVal" class="font-orbitron text-3xl font-black text-dm-green glow-green leading-none tabular-nums">0</div>
-        <div class="font-mono text-[0.6rem] text-dm-muted2 mt-1">metros</div>
-        <div class="flex flex-col gap-1 mt-2">
-          <div id="chip100" class="flex items-center justify-between px-2.5 py-1 border border-dm-border rounded text-xs font-mono text-dm-muted"><span>100 m</span><span>○</span></div>
-          <div id="chip201" class="flex items-center justify-between px-2.5 py-1 border border-dm-border rounded text-xs font-mono text-dm-muted"><span>⅛ milla</span><span>○</span></div>
-          <div id="chip402" class="flex items-center justify-between px-2.5 py-1 border border-dm-border rounded text-xs font-mono text-dm-muted"><span>¼ milla</span><span>○</span></div>
-        </div>
-      </div>
-
-      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden transition-all duration-300 hover:border-dm-orange/40" ng-class="ultimoRun ? 'border-dm-orange/50 shadow-[0_0_15px_rgba(255,107,0,0.1)]' : ''">
-        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-dm-orange transition-opacity duration-300" ng-class="ultimoRun ? 'opacity-100' : 'opacity-0'"></div>
-        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.18em] text-dm-muted mb-2.5">ÚLTIMO RUN</div>
-        <div ng-if="ultimoRun">
-          <div class="font-orbitron text-2xl font-black text-dm-orange glow-orange leading-none tabular-nums">{{ ultimoRun.top_speed | number:1 }}</div>
-          <div class="font-mono text-[0.6rem] text-dm-muted2 mt-1">km/h top</div>
-          <div class="font-mono text-[0.55rem] text-dm-muted2 mt-1.5">{{ ultimoRun.vehicle_name }}</div>
-          <div class="font-mono text-[0.55rem] text-dm-muted2 mt-0.5">0→100: {{ ultimoRun.zero_to_100 ? (ultimoRun.zero_to_100|number:2)+'s' : '—' }}</div>
-        </div>
-        <div ng-if="!ultimoRun" class="text-dm-muted font-mono text-xs mt-2">Esperando primer run...</div>
-      </div>
+    <div class="card" style="--edge:rgba(43,184,255,.35)">
+      <div class="card-h"><span class="label">Curva de velocidad</span><span class="unit">últimos 30 s</span></div>
+      <div class="chart-wrap"><canvas id="speedChart" aria-label="Gráfica de velocidad en el tiempo" role="img"></canvas></div>
     </div>
-
-    <!-- Sprint Times -->
-    <div id="sprintPanel" class="pspr-lg bg-dm-s2 border border-dm-border rounded-xl p-4 md:p-5 flex flex-col gap-2 relative overflow-hidden">
-      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-dm-red/40 to-transparent"></div>
-      <div class="font-orbitron text-[0.45rem] font-bold tracking-[0.2em] text-dm-muted mb-1">TIEMPOS DE SPRINT</div>
-      <div ng-if="liveSpeedTests.length > 0">
-        <div class="flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-all duration-300 relative overflow-hidden" ng-class="t.timeSeconds ? 'border-dm-orange/30 bg-dm-orange/5' : ''" ng-repeat="t in liveSpeedTests" style="margin-bottom:0.35rem">
-          <div class="absolute left-0 top-0 bottom-0 w-0.5 transition-colors duration-300" ng-class="t.timeSeconds ? 'bg-dm-red' : 'bg-dm-muted'"></div>
-          <span class="font-rajdhani text-xs font-semibold" ng-class="t.timeSeconds ? 'text-dm-text' : 'text-dm-muted2'">{{ t.range }} km/h</span>
-          <span class="font-orbitron text-sm font-bold" ng-class="t.timeSeconds ? 'text-dm-red' : 'text-dm-muted'">{{ t.timeSeconds ? (t.timeSeconds|number:2)+'s':'—' }}</span>
-        </div>
-      </div>
-      <div ng-if="liveSpeedTests.length === 0">
-        <div class="flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-all duration-300 relative overflow-hidden" ng-class="sp.z30 ? 'border-dm-red/30 bg-dm-red/5' : ''" style="margin-bottom:0.35rem">
-          <div class="absolute left-0 top-0 bottom-0 w-0.5 transition-colors duration-300" ng-class="sp.z30 ? 'bg-dm-red' : 'bg-dm-muted'"></div>
-          <span class="font-rajdhani text-xs font-semibold" ng-class="sp.z30 ? 'text-dm-text' : 'text-dm-muted2'">0 → 30 km/h</span>
-          <span class="font-orbitron text-sm font-bold" ng-class="sp.z30 ? 'text-dm-red' : 'text-dm-muted'">{{ sp.z30 ? (sp.z30|number:2)+'s':'—' }}</span>
-        </div>
-        <div class="flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-all duration-300 relative overflow-hidden" ng-class="sp.z60 ? 'border-dm-red/30 bg-dm-red/5' : ''" style="margin-bottom:0.35rem">
-          <div class="absolute left-0 top-0 bottom-0 w-0.5 transition-colors duration-300" ng-class="sp.z60 ? 'bg-dm-red' : 'bg-dm-muted'"></div>
-          <span class="font-rajdhani text-xs font-semibold" ng-class="sp.z60 ? 'text-dm-text' : 'text-dm-muted2'">0 → 60 km/h</span>
-          <span class="font-orbitron text-sm font-bold" ng-class="sp.z60 ? 'text-dm-red' : 'text-dm-muted'">{{ sp.z60 ? (sp.z60|number:2)+'s':'—' }}</span>
-        </div>
-        <div class="flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-all duration-300 relative overflow-hidden" ng-class="sp.z80 ? 'border-dm-red/30 bg-dm-red/5' : ''" style="margin-bottom:0.35rem">
-          <div class="absolute left-0 top-0 bottom-0 w-0.5 transition-colors duration-300" ng-class="sp.z80 ? 'bg-dm-red' : 'bg-dm-muted'"></div>
-          <span class="font-rajdhani text-xs font-semibold" ng-class="sp.z80 ? 'text-dm-text' : 'text-dm-muted2'">0 → 80 km/h</span>
-          <span class="font-orbitron text-sm font-bold" ng-class="sp.z80 ? 'text-dm-red' : 'text-dm-muted'">{{ sp.z80 ? (sp.z80|number:2)+'s':'—' }}</span>
-        </div>
-        <div class="flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-all duration-300 relative overflow-hidden" ng-class="sp.z100 ? 'border-dm-red/30 bg-dm-red/5' : ''" style="margin-bottom:0.35rem">
-          <div class="absolute left-0 top-0 bottom-0 w-0.5 transition-colors duration-300" ng-class="sp.z100 ? 'bg-dm-red' : 'bg-dm-muted'"></div>
-          <span class="font-rajdhani text-xs font-semibold" ng-class="sp.z100 ? 'text-dm-text' : 'text-dm-muted2'">0 → 100 km/h</span>
-          <span class="font-orbitron text-sm font-bold" ng-class="sp.z100 ? 'text-dm-red' : 'text-dm-muted'">{{ sp.z100 ? (sp.z100|number:2)+'s':'—' }}</span>
-        </div>
-        <div class="flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-all duration-300 relative overflow-hidden" ng-class="sp.z120 ? 'border-dm-red/30 bg-dm-red/5' : ''" style="margin-bottom:0.35rem">
-          <div class="absolute left-0 top-0 bottom-0 w-0.5 transition-colors duration-300" ng-class="sp.z120 ? 'bg-dm-red' : 'bg-dm-muted'"></div>
-          <span class="font-rajdhani text-xs font-semibold" ng-class="sp.z120 ? 'text-dm-text' : 'text-dm-muted2'">0 → 120 km/h</span>
-          <span class="font-orbitron text-sm font-bold" ng-class="sp.z120 ? 'text-dm-red' : 'text-dm-muted'">{{ sp.z120 ? (sp.z120|number:2)+'s':'—' }}</span>
-        </div>
-      </div>
-      <div class="flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-all duration-300 relative overflow-hidden" ng-class="sp.em ? 'border-dm-red/30 bg-dm-red/5' : ''" style="margin-bottom:0.35rem">
-        <div class="absolute left-0 top-0 bottom-0 w-0.5 transition-colors duration-300" ng-class="sp.em ? 'bg-dm-red' : 'bg-dm-muted'"></div>
-        <span class="font-rajdhani text-xs font-semibold" ng-class="sp.em ? 'text-dm-text' : 'text-dm-muted2'">⅛ milla (201m)</span>
-        <span class="font-orbitron text-sm font-bold" ng-class="sp.em ? 'text-dm-red' : 'text-dm-muted'">{{ sp.em ? (sp.em|number:2)+'s':'—' }}</span>
-      </div>
-      <div class="flex items-center justify-between px-3 py-2 bg-dm-s1 border border-dm-border rounded-lg transition-all duration-300 relative overflow-hidden" ng-class="sp.qm ? 'border-dm-red/30 bg-dm-red/5' : ''">
-        <div class="absolute left-0 top-0 bottom-0 w-0.5 transition-colors duration-300" ng-class="sp.qm ? 'bg-dm-red' : 'bg-dm-muted'"></div>
-        <span class="font-rajdhani text-xs font-semibold" ng-class="sp.qm ? 'text-dm-text' : 'text-dm-muted2'">¼ milla (402m)</span>
-        <span class="font-orbitron text-sm font-bold" ng-class="sp.qm ? 'text-dm-red' : 'text-dm-muted'">{{ sp.qm ? (sp.qm|number:2)+'s':'—' }}</span>
-      </div>
-    </div>
-
-    <!-- Chart -->
-    <div class="pchart-lg bg-dm-s2 border border-dm-border rounded-xl p-4 md:p-5 relative overflow-hidden">
-      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-dm-blue/30 to-transparent"></div>
-      <div class="font-orbitron text-[0.45rem] font-bold tracking-[0.2em] text-dm-muted mb-3">CURVA DE VELOCIDAD — ÚLTIMOS 40 PUNTOS</div>
-      <canvas id="speedChart"></canvas>
-    </div>
-
   </div>
-</div>
+
+  <!-- Timeslip -->
+  <div class="col a-slip" style="--i:2">
+    <div class="card" style="--edge:rgba(255,59,92,.45)">
+      <div class="card-h"><span class="label">Timeslip</span><span class="unit" ng-cloak>{{ ultimoRun ? 'último run' : 'esperando' }}</span></div>
+      <div class="slip" id="slip" ng-cloak>
+        <div class="slip-slot" aria-hidden="true"></div>
+        <div class="slip-paper">
+          <div class="slip-head">
+            <div class="t">DRAG<b>MOTO</b></div>
+            <div class="s">{{ ultimoRun ? (ultimoRun.synced_at | date:'dd/MM/yyyy · HH:mm:ss') : 'TIMESLIP · ESPERANDO RUN' }}</div>
+          </div>
+          <div class="slip-veh"><span>VEHÍCULO</span><b>{{ ultimoRun.vehicle_name || '—' }}</b></div>
+          <div class="slip-sec">Velocidad</div>
+          <div class="slip-row" ng-repeat="t in slip.speed">
+            <span class="k">{{ t.k }}</span><span class="v" ng-class="t.v ? 't-red' : 'nil'">{{ t.v | secs }}</span>
+          </div>
+          <div class="slip-sec">Distancia</div>
+          <div class="slip-row" ng-repeat="t in slip.dist">
+            <span class="k">{{ t.k }}</span><span class="v" ng-class="t.v ? 't-orange' : 'nil'">{{ t.v | secs }}</span>
+          </div>
+          <div class="slip-foot">
+            <div><div class="k">TOP SPEED</div><div class="v">{{ ultimoRun.top_speed ? (ultimoRun.top_speed | number:1) : '—' }}</div></div>
+            <div><div class="k">TRAP ¼</div><div class="v">{{ ultimoRun.trap_speed_quarter ? (ultimoRun.trap_speed_quarter | number:1) : '—' }}</div></div>
+          </div>
+          <div class="slip-empty" ng-if="!ultimoRun">El ticket se imprime al terminar el run</div>
+          <div class="slip-barcode" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- ══ HISTORIAL ═════════════════════════════════════════════════ -->
-<div class="p-3 md:p-4 lg:p-5" ng-show="tab==='historial'" ng-controller="HistCtrl">
-<div class="flex flex-col gap-4">
+<section class="view hist" ng-show="tab==='historial'" ng-controller="HistCtrl" aria-label="Historial de runs" ng-cloak>
 
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" ng-if="stats">
-      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
-        <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-red"></div>
-        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">TOTAL RUNS</div>
-        <div class="font-orbitron text-2xl font-black text-dm-red glow-red tabular-nums"><span count-up="stats.totalRuns||0" decimals="0"></span></div>
-      </div>
-      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
-        <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-blue"></div>
-        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR TOP SPEED</div>
-        <div class="font-orbitron text-2xl font-black text-dm-blue glow-blue tabular-nums"><span count-up="stats.bestTopSpeed" decimals="1"></span><span ng-if="stats.bestTopSpeed" class="text-xs text-dm-muted2 ml-1">km/h</span></div>
-      </div>
-      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
-        <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-green"></div>
-        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR 0→100</div>
-        <div class="font-orbitron text-2xl font-black text-dm-green glow-green tabular-nums"><span count-up="stats.bestZeroTo100" decimals="2" suffix="s"></span></div>
-      </div>
-      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
-        <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-yellow"></div>
-        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR 100 M</div>
-        <div class="font-orbitron text-2xl font-black text-dm-yellow glow-yellow tabular-nums"><span count-up="stats.bestHundredMeters" decimals="2" suffix="s"></span></div>
-      </div>
-      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
-        <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-orange"></div>
-        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR ⅛ MILLA</div>
-        <div class="font-orbitron text-2xl font-black text-dm-orange glow-orange tabular-nums"><span count-up="stats.bestEighthMile" decimals="2" suffix="s"></span></div>
-      </div>
-      <div class="bg-dm-s2 border border-dm-border rounded-xl p-4 relative overflow-hidden">
-        <div class="absolute top-0 left-0 right-0 h-0.5 bg-dm-blueSoft"></div>
-        <div class="font-orbitron text-[0.42rem] font-bold tracking-[0.14em] text-dm-muted mb-2">MEJOR ¼ MILLA</div>
-        <div class="font-orbitron text-2xl font-black text-dm-blueSoft tabular-nums"><span count-up="stats.bestQuarterMile" decimals="2" suffix="s"></span></div>
-      </div>
+  <div class="stats" style="--i:0">
+    <div class="card stat" style="--edge:rgba(255,59,92,.5)"><span class="label">Total runs</span><span class="num t-red" count-up="stats.totalRuns||0" decimals="0"></span></div>
+    <div class="card stat" style="--edge:rgba(255,122,26,.5)"><span class="label">Top speed</span><span class="num t-orange"><span count-up="stats.bestTopSpeed" decimals="1"></span><span class="unit">km/h</span></span></div>
+    <div class="card stat" style="--edge:rgba(25,230,140,.5)"><span class="label">Mejor 0→100</span><span class="num t-green" count-up="stats.bestZeroTo100" decimals="2" suffix="s"></span></div>
+    <div class="card stat" style="--edge:rgba(255,225,77,.5)"><span class="label">Mejor 100 m</span><span class="num t-yellow" count-up="stats.bestHundredMeters" decimals="2" suffix="s"></span></div>
+    <div class="card stat" style="--edge:rgba(255,176,32,.5)"><span class="label">Mejor ⅛ mi</span><span class="num t-amber" count-up="stats.bestEighthMile" decimals="2" suffix="s"></span></div>
+    <div class="card stat" style="--edge:rgba(43,184,255,.5)"><span class="label">Mejor ¼ mi</span><span class="num t-blue" count-up="stats.bestQuarterMile" decimals="2" suffix="s"></span></div>
+  </div>
+
+  <div class="toolbar" style="--i:1">
+    <label class="search">
+      <span class="sr-only">Buscar por vehículo</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input class="field" type="search" ng-model="q" placeholder="Buscar por vehículo o notas…">
+    </label>
+    <select class="field" ng-model="col" aria-label="Ordenar por">
+      <option value="created_at">Más recientes</option>
+      <option value="top_speed">Top speed</option>
+      <option value="zero_to_100">0→100</option>
+      <option value="quarter_mile">¼ milla</option>
+      <option value="vehicle_name">Vehículo</option>
+    </select>
+    <button class="btn" ng-class="{loading: loading}" ng-click="load()">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>RECARGAR
+    </button>
+  </div>
+
+  <div style="--i:2">
+    <div ng-if="loading && !runs.length">
+      <div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>
     </div>
 
-    <div class="flex gap-3 items-center">
-      <input class="flex-1 bg-dm-s1 border border-dm-border2 rounded-lg px-4 py-2.5 text-dm-text font-mono text-sm outline-none transition-colors duration-200 focus:border-dm-red placeholder-dm-muted" type="text" ng-model="q" placeholder="🔍 Buscar por vehículo...">
-      <button class="px-4 py-2.5 rounded-lg font-orbitron text-[0.55rem] font-bold tracking-[0.1em] cursor-pointer transition-all duration-200 bg-transparent border border-dm-border2 text-dm-muted2 hover:border-dm-red hover:text-dm-red" ng-click="load()">↺ RECARGAR</button>
+    <div class="card empty err" ng-if="err && !loading">
+      <svg viewBox="0 0 120 60" aria-hidden="true"><rect x="2" y="20" width="116" height="22" rx="5" fill="none" stroke="#ff3b5c" stroke-width="2" stroke-dasharray="6 5"/><path d="M52 31h16" stroke="#ff3b5c" stroke-width="3" stroke-linecap="round"/></svg>
+      <h3>{{ err }}</h3>
+      <p>Revisa que el servidor tenga conexión con la base de datos.</p>
+      <button class="btn" ng-click="load()">REINTENTAR</button>
     </div>
 
-    <div class="flex flex-col items-center gap-3 py-14" ng-if="loading">
-      <div class="w-8 h-8 border-[3px] border-dm-border2 border-t-dm-red rounded-full" style="animation:spin 0.7s linear infinite"></div>
-      <span class="font-mono text-sm text-dm-muted">Cargando historial...</span>
+    <div class="card empty" ng-if="!loading && !err && runs.length===0">
+      <svg viewBox="0 0 120 60" aria-hidden="true"><rect x="2" y="20" width="116" height="22" rx="5" fill="none" stroke="#2e3548" stroke-width="2"/><path d="M10 31h100" stroke="#2e3548" stroke-width="2" stroke-dasharray="8 6"/><circle cx="14" cy="31" r="7" fill="#11141c" stroke="#ff3b5c" stroke-width="2"/></svg>
+      <h3>Aún no hay runs</h3>
+      <p>Cuando la moto termine su primer run aparecerá aquí automáticamente.</p>
     </div>
 
-    <div class="py-10 text-center font-mono text-sm text-dm-red" ng-if="err && !loading">⚠ {{ err }}</div>
-
-    <div class="bg-dm-s1 border border-dm-border rounded-xl overflow-x-auto" ng-if="!loading && !err && runs.length">
-      <table class="w-full border-collapse" style="min-width:900px">
+    <div class="table-wrap" ng-if="!err && runs.length">
+      <table>
         <thead>
-          <tr class="bg-dm-s3 border-b border-dm-border2">
-            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('created_at')">FECHA</th>
-            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('vehicle_name')">VEHÍCULO</th>
-            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('top_speed')">TOP SPEED</th>
-            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left whitespace-nowrap">VELOCIDAD</th>
-            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('hundred_meters')" title="100 metros">100 M</th>
-            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('eighth_mile')" title="1/8 de milla (201m)">⅛ MI</th>
-            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('quarter_mile')" title="1/4 de milla (402m)">¼ MI</th>
-            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('one_km')" title="1 kilómetro">1 KM</th>
-            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('trap_speed_quarter')">TRAP</th>
-            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('peak_acceleration')">ACEL</th>
-            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left cursor-pointer select-none whitespace-nowrap hover:text-dm-red transition-colors" ng-click="o('total_distance')">DIST</th>
-            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left whitespace-nowrap">SALIDA</th>
-            <th class="px-3.5 py-2.5 font-orbitron text-[0.45rem] font-bold tracking-[0.14em] text-dm-muted text-left whitespace-nowrap">NOTAS</th>
-            <th class="px-3.5 py-2.5"></th>
+          <tr>
+            <th class="sort" ng-class="{act: col==='created_at'}" ng-click="o('created_at')">Fecha<span class="arr" ng-if="col==='created_at'" ng-class="{up: !desc}">▾</span></th>
+            <th class="sort" ng-class="{act: col==='vehicle_name'}" ng-click="o('vehicle_name')">Vehículo<span class="arr" ng-if="col==='vehicle_name'" ng-class="{up: !desc}">▾</span></th>
+            <th class="sort" ng-class="{act: col==='top_speed'}" ng-click="o('top_speed')">Top speed<span class="arr" ng-if="col==='top_speed'" ng-class="{up: !desc}">▾</span></th>
+            <th class="sort" ng-class="{act: col==='zero_to_100'}" ng-click="o('zero_to_100')">0→100<span class="arr" ng-if="col==='zero_to_100'" ng-class="{up: !desc}">▾</span></th>
+            <th class="sort" ng-class="{act: col==='hundred_meters'}" ng-click="o('hundred_meters')">100 m<span class="arr" ng-if="col==='hundred_meters'" ng-class="{up: !desc}">▾</span></th>
+            <th class="sort" ng-class="{act: col==='eighth_mile'}" ng-click="o('eighth_mile')">⅛ mi<span class="arr" ng-if="col==='eighth_mile'" ng-class="{up: !desc}">▾</span></th>
+            <th class="sort" ng-class="{act: col==='quarter_mile'}" ng-click="o('quarter_mile')">¼ mi<span class="arr" ng-if="col==='quarter_mile'" ng-class="{up: !desc}">▾</span></th>
+            <th class="sort" ng-class="{act: col==='trap_speed_quarter'}" ng-click="o('trap_speed_quarter')">Trap<span class="arr" ng-if="col==='trap_speed_quarter'" ng-class="{up: !desc}">▾</span></th>
+            <th>Salida</th>
+            <th><span class="sr-only">Acciones</span></th>
           </tr>
         </thead>
         <tbody>
-          <tr ng-repeat="r in runs | filter:q | orderBy:col:desc" class="border-b border-dm-border hover:bg-dm-red/5 transition-colors" ng-class="{ 'row-in': r._id === newId }">
-            <td class="px-3.5 py-3 font-mono text-xs text-dm-muted2 whitespace-nowrap">{{ r.created_at | date:'dd/MM/yy HH:mm' }}</td>
-            <td class="px-3.5 py-3 font-rajdhani text-sm font-bold text-dm-text">{{ r.vehicle_name||'—' }}</td>
-            <td class="px-3.5 py-3 font-orbitron text-sm font-bold text-dm-orange">{{ r.top_speed|number:1 }} km/h</td>
-            <td class="px-3.5 py-3 font-mono text-[0.65rem] text-dm-green leading-relaxed max-w-[200px] whitespace-normal">
-              <span ng-if="r.custom_speed_results && r.custom_speed_results !== '[]'" class="text-dm-green text-xs">✓ tests configurados</span>
-              <span ng-if="!r.custom_speed_results || r.custom_speed_results === '[]'" class="text-dm-muted">—</span>
-            </td>
-            <td ng-class="{'text-dm-orange': r.hundred_meters}" class="px-3.5 py-3 font-mono text-xs">
-              {{ r.hundred_meters ? (r.hundred_meters|number:2)+'s' : '—' }}
-            </td>
-            <td ng-class="{'text-dm-orange': r.eighth_mile}" class="px-3.5 py-3 font-mono text-xs">
-              {{ r.eighth_mile ? (r.eighth_mile|number:2)+'s' : '—' }}
-            </td>
-            <td ng-class="{'text-dm-orange': r.quarter_mile}" class="px-3.5 py-3 font-mono text-xs">
-              {{ r.quarter_mile ? (r.quarter_mile|number:2)+'s' : '—' }}
-            </td>
-            <td ng-class="{'text-dm-orange': r.one_km}" class="px-3.5 py-3 font-mono text-xs">
-              {{ r.one_km ? (r.one_km|number:2)+'s' : '—' }}
-            </td>
-            <td class="px-3.5 py-3 font-mono text-xs text-dm-blue">
-              {{ r.trap_speed_quarter ? (r.trap_speed_quarter|number:1)+' km/h' : '—' }}
-            </td>
-            <td class="px-3.5 py-3 font-mono text-xs text-dm-blue">
-              {{ r.peak_acceleration ? (r.peak_acceleration|number:2)+' m/s²' : '—' }}
-            </td>
-            <td class="px-3.5 py-3 font-mono text-xs">{{ (r.total_distance/1000)|number:2 }} km</td>
-            <td class="px-3.5 py-3">
-              <span class="inline-block px-2 py-0.5 rounded font-orbitron text-[0.45rem] font-bold tracking-[0.08em]" ng-class="{
-                'bg-dm-green/10 text-dm-green border border-dm-green/30': r.launch_quality==='EXCELENTE'||r.launch_quality==='BUENA',
-                'bg-dm-orange/10 text-dm-orange border border-dm-orange/30': r.launch_quality==='REGULAR',
-                'bg-dm-redGlow/10 text-dm-redGlow border border-dm-red/30': r.launch_quality==='POBRE',
-                'bg-dm-s3 text-dm-muted2 border border-dm-border': !r.launch_quality
-              }">{{ r.launch_quality||'—' }}</span>
-            </td>
-            <td class="px-3.5 py-3 font-mono text-[0.65rem] text-dm-muted2 max-w-[160px] whitespace-normal leading-relaxed">
-              <span ng-if="r.setup_notes">{{ r.setup_notes }}</span>
-              <span ng-if="!r.setup_notes" class="text-dm-muted">—</span>
-            </td>
-            <td class="px-3.5 py-3">
-              <div class="flex gap-1.5">
-                <button class="bg-dm-red/10 border border-dm-red/40 rounded text-dm-red py-0.5 px-2 font-orbitron text-[0.45rem] font-bold tracking-[0.08em] cursor-pointer transition-all duration-200 hover:bg-dm-red hover:text-dm-bg" ng-click="ver(r)">VER</button>
-                <button class="bg-transparent border border-dm-border rounded text-dm-muted py-0.5 px-2 font-orbitron text-[0.45rem] tracking-[0.08em] cursor-pointer transition-all duration-200 hover:border-dm-redGlow hover:text-dm-redGlow" ng-click="del(r)">DEL</button>
-              </div>
+          <tr ng-repeat="r in runs | filter:q | orderBy:col:desc track by r._id" ng-class="{'row-in': r._id === newId}" ng-click="ver(r)">
+            <td class="t-muted">{{ r.created_at | date:'dd/MM/yy HH:mm' }}</td>
+            <td class="veh">{{ r.vehicle_name || '—' }}</td>
+            <td><span class="num t-orange">{{ r.top_speed | number:1 }}</span> <span class="unit">km/h</span><span class="pb" ng-if="esMejor('bestTopSpeed', r.top_speed)">PB</span></td>
+            <td><span ng-class="r.zero_to_100 ? 't-green' : 't-dim'">{{ r.zero_to_100 | secs }}</span><span class="pb" ng-if="esMejor('bestZeroTo100', r.zero_to_100)">PB</span></td>
+            <td><span ng-class="r.hundred_meters ? '' : 't-dim'">{{ r.hundred_meters | secs }}</span></td>
+            <td><span ng-class="r.eighth_mile ? '' : 't-dim'">{{ r.eighth_mile | secs }}</span></td>
+            <td><span ng-class="r.quarter_mile ? 't-red' : 't-dim'">{{ r.quarter_mile | secs }}</span><span class="pb" ng-if="esMejor('bestQuarterMile', r.quarter_mile)">PB</span></td>
+            <td><span ng-class="r.trap_speed_quarter ? 't-blue' : 't-dim'">{{ r.trap_speed_quarter ? (r.trap_speed_quarter | number:1) + ' km/h' : '—' }}</span></td>
+            <td><span class="chip" ng-class="salidaClase(r.launch_quality)">{{ r.launch_quality || '—' }}</span></td>
+            <td style="text-align:right">
+              <button class="btn btn-sm btn-danger" ng-click="del(r, $event)" aria-label="Eliminar run">ELIMINAR</button>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-<div class="py-14 text-center font-mono text-sm text-dm-muted" ng-if="!loading && !err && runs.length===0">
-       No hay runs registrados aún.
-     </div>
-
-
-<!-- ══ MODAL DETALLE RUN ══════════════════════════════════════════ -->
-<div class="fixed inset-0 bg-black/85 backdrop-blur-sm z-[1000] flex items-center justify-center p-4 md:p-5" ng-if="modalRun" ng-click="cerrarModal()">
-  <div class="bg-dm-s1 border border-dm-border2 rounded-xl w-full max-w-[860px] max-h-[90vh] overflow-y-auto flex flex-col" ng-click="$event.stopPropagation()">
-    <div class="flex justify-between items-start p-5 md:p-6 border-b border-dm-border">
-      <div>
-        <div class="font-orbitron text-lg font-black text-dm-text tracking-[0.08em]">{{ modalRun.vehicle_name || 'Sin vehículo' }}</div>
-        <div class="font-mono text-[0.65rem] text-dm-muted2 mt-1">{{ modalRun.created_at | date:'dd/MM/yyyy HH:mm' }} · {{ modalRun.mode }}</div>
-      </div>
-      <button class="bg-transparent border border-dm-border2 rounded text-dm-muted2 px-2.5 py-1.5 text-lg cursor-pointer transition-all duration-200 hover:border-dm-redGlow hover:text-dm-redGlow leading-none" ng-click="cerrarModal()">✕</button>
+    <div class="cards" ng-if="!err && runs.length">
+      <button class="rcard" ng-repeat="r in runs | filter:q | orderBy:col:desc track by r._id" ng-class="{'row-in': r._id === newId}" ng-click="ver(r)">
+        <span class="veh">{{ r.vehicle_name || '—' }}</span>
+        <span class="top"><span class="num">{{ r.top_speed | number:1 }}</span><br><span class="unit">km/h</span></span>
+        <span class="date">{{ r.created_at | date:'dd/MM/yy HH:mm' }}</span>
+        <span class="times">
+          <span>0→100 <b>{{ r.zero_to_100 | secs }}</b></span>
+          <span>⅛ <b>{{ r.eighth_mile | secs }}</b></span>
+          <span>¼ <b>{{ r.quarter_mile | secs }}</b></span>
+        </span>
+      </button>
     </div>
+  </div>
 
-    <div class="grid grid-cols-3 md:grid-cols-5 gap-px bg-dm-border border-b border-dm-border">
-      <div class="bg-dm-s2 p-4 text-center">
-        <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.18em] text-dm-muted mb-2">TOP SPEED</div>
-        <div class="font-orbitron text-2xl font-black text-dm-orange glow-orange leading-none">{{ modalRun.top_speed | number:1 }}</div>
-        <div class="font-mono text-[0.55rem] text-dm-muted2 mt-1.5">km/h</div>
-      </div>
-      <div class="bg-dm-s2 p-4 text-center">
-        <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.18em] text-dm-muted mb-2">DISTANCIA</div>
-        <div class="font-orbitron text-2xl font-black text-dm-green glow-green leading-none">{{ (modalRun.total_distance/1000) | number:2 }}</div>
-        <div class="font-mono text-[0.55rem] text-dm-muted2 mt-1.5">km</div>
-      </div>
-      <div class="bg-dm-s2 p-4 text-center">
-        <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.18em] text-dm-muted mb-2">ACEL. PICO</div>
-        <div class="font-orbitron text-2xl font-black text-dm-blue glow-blue leading-none">{{ modalRun.peak_acceleration | number:2 }}</div>
-        <div class="font-mono text-[0.55rem] text-dm-muted2 mt-1.5">m/s²</div>
-      </div>
-      <div class="bg-dm-s2 p-4 text-center">
-        <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.18em] text-dm-muted mb-2">TRAP ¼ MI</div>
-        <div class="font-orbitron text-2xl font-black text-dm-orange2 leading-none">{{ modalRun.trap_speed_quarter ? (modalRun.trap_speed_quarter|number:1) : '—' }}</div>
-        <div class="font-mono text-[0.55rem] text-dm-muted2 mt-1.5">km/h</div>
-      </div>
-      <div class="bg-dm-s2 p-4 text-center">
-        <div class="font-orbitron text-[0.4rem] font-bold tracking-[0.18em] text-dm-muted mb-2">SALIDA</div>
-        <div class="mt-1.5">
-          <span class="inline-block px-2 py-1 rounded font-orbitron text-[0.45rem] font-bold tracking-[0.08em]" ng-class="{'bg-dm-green/10 text-dm-green border border-dm-green/30':modalRun.launch_quality==='EXCELENTE'||modalRun.launch_quality==='BUENA','bg-dm-orange/10 text-dm-orange border border-dm-orange/30':modalRun.launch_quality==='REGULAR','bg-dm-redGlow/10 text-dm-redGlow border border-dm-red/30':modalRun.launch_quality==='POBRE','bg-dm-s3 text-dm-muted2 border border-dm-border':!modalRun.launch_quality}">{{ modalRun.launch_quality||'—' }}</span>
+  <!-- ══ MODAL DETALLE RUN ══════════════════════════════════════ -->
+  <div class="modal" ng-if="modalRun" ng-click="cerrarModal()" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="sheet" ng-click="$event.stopPropagation()">
+      <div class="sheet-h">
+        <div>
+          <h2 id="modalTitle">{{ modalRun.vehicle_name || 'Sin vehículo' }}</h2>
+          <p>{{ modalRun.created_at | date:'dd/MM/yyyy HH:mm' }} · {{ modalRun.mode }}</p>
         </div>
-        <div class="h-1.5">&nbsp;</div>
+        <button class="x" ng-click="cerrarModal()" aria-label="Cerrar">✕</button>
       </div>
-    </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-0 border-b border-dm-border">
-      <div class="p-5 md:border-r border-dm-border">
-        <div class="font-orbitron text-[0.5rem] font-bold tracking-[0.16em] text-dm-muted mb-3">⚡ TIEMPOS DE VELOCIDAD</div>
-        <div class="flex flex-col gap-1.5">
-          <div ng-if="modalCustomSpeed.length > 0">
-            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="r.timeSeconds ? 'border-dm-green/40 bg-dm-green/5' : 'border-dm-border'" ng-repeat="r in modalCustomSpeed" style="margin-bottom:0.375rem">
-              <span class="font-rajdhani text-sm font-semibold" ng-class="r.timeSeconds ? 'text-dm-text' : 'text-dm-muted2'">{{ r.range }} km/h</span>
-              <span class="font-orbitron text-sm font-bold" ng-class="r.timeSeconds ? 'text-dm-green' : 'text-dm-muted'">{{ r.timeSeconds ? (r.timeSeconds | number:2)+"s" : "—" }}</span>
-            </div>
-          </div>
-          <div ng-if="modalCustomSpeed.length === 0">
-            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-green/40 bg-dm-green/5':modalRun.zero_to_30}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.zero_to_30?'text-dm-text':'text-dm-muted2'">0 → 30 km/h</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.zero_to_30?'text-dm-green':'text-dm-muted'">{{ modalRun.zero_to_30?(modalRun.zero_to_30|number:2)+"s":"—" }}</span></div>
-            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-green/40 bg-dm-green/5':modalRun.zero_to_60}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.zero_to_60?'text-dm-text':'text-dm-muted2'">0 → 60 km/h</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.zero_to_60?'text-dm-green':'text-dm-muted'">{{ modalRun.zero_to_60?(modalRun.zero_to_60|number:2)+"s":"—" }}</span></div>
-            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-green/40 bg-dm-green/5':modalRun.zero_to_80}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.zero_to_80?'text-dm-text':'text-dm-muted2'">0 → 80 km/h</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.zero_to_80?'text-dm-green':'text-dm-muted'">{{ modalRun.zero_to_80?(modalRun.zero_to_80|number:2)+"s":"—" }}</span></div>
-            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-green/40 bg-dm-green/5':modalRun.zero_to_100}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.zero_to_100?'text-dm-text':'text-dm-muted2'">0 → 100 km/h</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.zero_to_100?'text-dm-green':'text-dm-muted'">{{ modalRun.zero_to_100?(modalRun.zero_to_100|number:2)+"s":"—" }}</span></div>
-            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-green/40 bg-dm-green/5':modalRun.zero_to_120}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.zero_to_120?'text-dm-text':'text-dm-muted2'">0 → 120 km/h</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.zero_to_120?'text-dm-green':'text-dm-muted'">{{ modalRun.zero_to_120?(modalRun.zero_to_120|number:2)+"s":"—" }}</span></div>
-            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-green/40 bg-dm-green/5':modalRun.sixty_to_hundred}"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.sixty_to_hundred?'text-dm-text':'text-dm-muted2'">60 → 100 km/h</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.sixty_to_hundred?'text-dm-green':'text-dm-muted'">{{ modalRun.sixty_to_hundred?(modalRun.sixty_to_hundred|number:2)+"s":"—" }}</span></div>
-          </div>
+      <div class="kpis">
+        <div><span class="label">Top speed</span><span class="num t-orange">{{ modalRun.top_speed | number:1 }}</span><span class="unit">km/h</span></div>
+        <div><span class="label">Distancia</span><span class="num t-green">{{ (modalRun.total_distance/1000) | number:2 }}</span><span class="unit">km</span></div>
+        <div><span class="label">Acel. pico</span><span class="num t-blue">{{ modalRun.peak_acceleration | number:2 }}</span><span class="unit">m/s²</span></div>
+        <div><span class="label">Trap ¼</span><span class="num t-blue">{{ modalRun.trap_speed_quarter ? (modalRun.trap_speed_quarter | number:1) : '—' }}</span><span class="unit">km/h</span></div>
+        <div><span class="label">Salida</span><span style="display:block;margin-top:12px"><span class="chip" ng-class="salidaClase(modalRun.launch_quality)">{{ modalRun.launch_quality || '—' }}</span></span></div>
+      </div>
+
+      <div class="sheet-cols">
+        <div>
+          <span class="label">Tiempos de velocidad</span>
+          <div class="trow" ng-repeat="t in modalSpeed" ng-class="{has: t.v}" style="--hc:var(--green)"><span>{{ t.k }}</span><span class="num">{{ t.v | secs }}</span></div>
+        </div>
+        <div>
+          <span class="label">Tiempos de distancia</span>
+          <div class="trow" ng-repeat="t in modalDist" ng-class="{has: t.v}" style="--hc:var(--orange)"><span>{{ t.k }}</span><span class="num">{{ t.v | secs }}</span></div>
         </div>
       </div>
-      <div class="p-5">
-        <div class="font-orbitron text-[0.5rem] font-bold tracking-[0.16em] text-dm-muted mb-3">📏 TIEMPOS DE DISTANCIA</div>
-        <div class="flex flex-col gap-1.5">
-          <div ng-if="modalCustomDist.length > 0">
-            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="r.timeSeconds ? 'border-dm-orange/40 bg-dm-orange/5' : 'border-dm-border'" ng-repeat="r in modalCustomDist" style="margin-bottom:0.375rem">
-              <span class="font-rajdhani text-sm font-semibold" ng-class="r.timeSeconds ? 'text-dm-text' : 'text-dm-muted2'">
-                {{ r.targetMeters >= 1000 ? (r.targetMeters/1000 | number:2)+"km" :
-                   (r.targetMeters >= 400 && r.targetMeters <= 403) ? "¼ milla" :
-                   (r.targetMeters >= 200 && r.targetMeters <= 202) ? "⅛ milla" :
-                   r.targetMeters+"m" }}
-              </span>
-              <span class="font-orbitron text-sm font-bold" ng-class="r.timeSeconds ? 'text-dm-orange' : 'text-dm-muted'">{{ r.timeSeconds ? (r.timeSeconds | number:2)+"s" : "—" }}</span>
-            </div>
-          </div>
-          <div ng-if="modalCustomDist.length === 0">
-            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-orange/40 bg-dm-orange/5':modalRun.hundred_meters}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.hundred_meters?'text-dm-text':'text-dm-muted2'">100 metros</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.hundred_meters?'text-dm-orange':'text-dm-muted'">{{ modalRun.hundred_meters?(modalRun.hundred_meters|number:2)+"s":"—" }}</span></div>
-            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-orange/40 bg-dm-orange/5':modalRun.eighth_mile}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.eighth_mile?'text-dm-text':'text-dm-muted2'">⅛ milla (201 m)</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.eighth_mile?'text-dm-orange':'text-dm-muted'">{{ modalRun.eighth_mile?(modalRun.eighth_mile|number:2)+"s":"—" }}</span></div>
-            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-orange/40 bg-dm-orange/5':modalRun.quarter_mile}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.quarter_mile?'text-dm-text':'text-dm-muted2'">¼ milla (402 m)</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.quarter_mile?'text-dm-orange':'text-dm-muted'">{{ modalRun.quarter_mile?(modalRun.quarter_mile|number:2)+"s":"—" }}</span></div>
-            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-orange/40 bg-dm-orange/5':modalRun.one_km}" style="margin-bottom:0.375rem"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.one_km?'text-dm-text':'text-dm-muted2'">1 kilómetro</span><span class="font-orbitron text-sm font-bold" ng-class="modalRun.one_km?'text-dm-orange':'text-dm-muted'">{{ modalRun.one_km?(modalRun.one_km|number:2)+"s":"—" }}</span></div>
-            <div class="flex justify-between items-center px-3 py-1.5 bg-dm-bg border rounded transition-all duration-200" ng-class="{'border-dm-blue/40 bg-dm-blue/5':modalRun.trap_speed_quarter}"><span class="font-rajdhani text-sm font-semibold" ng-class="modalRun.trap_speed_quarter?'text-dm-text':'text-dm-muted2'">Trap ¼ milla</span><span class="font-orbitron text-sm font-bold text-dm-blue">{{ modalRun.trap_speed_quarter?(modalRun.trap_speed_quarter|number:1)+" km/h":"—" }}</span></div>
-          </div>
-        </div>
+
+      <div class="sheet-sec">
+        <div class="card-h"><span class="label">Comparativa de tiempos</span><span class="unit">barra corta = mejor</span></div>
+        <div ng-show="!modalSinTiempos" style="position:relative;height:220px"><canvas id="modalChart"></canvas></div>
+        <p class="t-muted mono" ng-if="modalSinTiempos" style="text-align:center;padding:12px 0">Sin tiempos registrados en este run</p>
+      </div>
+
+      <div class="sheet-sec" ng-if="modalRun.setup_notes">
+        <span class="label">Notas de setup</span>
+        <p style="margin-top:10px;font-size:16px;line-height:1.45">{{ modalRun.setup_notes }}</p>
+      </div>
+
+      <div class="sheet-f">
+        <span>ID {{ modalRun._id }}</span>
+        <button class="btn btn-sm btn-danger" ng-click="del(modalRun, $event)">ELIMINAR RUN</button>
       </div>
     </div>
+  </div>
+</section>
 
-    <div class="p-5 md:p-6 border-b border-dm-border">
-      <div class="font-orbitron text-[0.5rem] font-bold tracking-[0.16em] text-dm-muted mb-3">📊 COMPARATIVA DE TIEMPOS</div>
-      <canvas id="modalChart" height="90"></canvas>
-      <div class="text-center font-mono text-[0.55rem] text-dm-muted mt-2">Solo tiempos obtenidos en este run — barras más cortas = mejor rendimiento</div>
-    </div>
+</main>
 
-    <div class="flex justify-between items-center px-5 md:px-6 py-4">
-      <div class="font-mono text-[0.6rem] text-dm-muted">ID: {{ modalRun._id }}</div>
-<button class="px-4 py-2.5 rounded-lg font-orbitron text-[0.55rem] font-bold tracking-[0.1em] cursor-pointer transition-all duration-200 bg-transparent border border-dm-border2 text-dm-muted2 hover:border-dm-red hover:text-dm-red" ng-click="cerrarModal()">CERRAR</button>
-</div>
-   </div>
- </div>
-</div>
-
-</div>
-
-<!-- ── Banner run completado ── -->
-<div id="banner" class="fixed bottom-6 left-1/2 z-[600] hidden bg-dm-s1 border border-dm-red/40 rounded-xl px-5 py-3 shadow-[0_0_30px_rgba(244,63,94,0.15)]" style="transform:translate(-50%,0)">
-  <div class="font-orbitron text-[0.5rem] font-bold tracking-[0.18em] text-dm-red mb-1.5">✓ RUN COMPLETADO</div>
-  <div id="bannerBody" class="font-mono text-[0.7rem] text-dm-text flex flex-wrap gap-x-4 gap-y-1"></div>
+<!-- ── Toast run completado ── -->
+<div id="banner" class="hidden" role="status" aria-live="polite">
+  <div class="ttl">✓ RUN COMPLETADO</div>
+  <div id="bannerBody"></div>
 </div>
 
 <!-- ── Scripts ── -->
@@ -529,10 +684,10 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 /* ════════════════════════════════════════════════════════════
    MOTOR EN VIVO (vanilla, fuera de Angular)
    Maneja los elementos de alta frecuencia a 60 fps: velocímetro
-   LED, números interpolados entre fixes de 1 Hz, curva con hitos
-   y cronómetro anclado al lanzamiento. Angular conserva sockets,
-   historial y botones. Con prefers-reduced-motion los valores
-   saltan a 1 Hz como antes (sin animación).
+   LED, números interpolados entre fixes de 1 Hz, pista de ¼ de
+   milla, curva con hitos, cronómetro y árbol de luces. Angular
+   conserva sockets, timeslip, historial y botones. Con
+   prefers-reduced-motion los valores saltan a 1 Hz (sin animación).
    ════════════════════════════════════════════════════════════ */
 var Live = (function(){
   const RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -543,29 +698,32 @@ var Live = (function(){
   const maxVelTxt = $id('maxVelTxt'), distMini = $id('distMini');
   const accelVal = $id('accelVal'), accelBar = $id('accelBar'), accelPeak = $id('accelPeak');
   const distVal = $id('distVal'), chronoEl = $id('chrono');
+  const stripFill = $id('stripFill'), stripBike = $id('stripBike');
+  const treeEl = $id('tree');
   const banner = $id('banner'), bannerBody = $id('bannerBody');
+  const STRIP_M = 402;
 
   /* ── velocímetro LED: 40 segmentos en arco 270° (135° → 405°) ── */
   const GA = { cx:120, cy:120, vmax:200, a0:135, sweepDeg:270, step:5, circ:540.36, arc:405.27 };
   const gaugeDeg = v => GA.a0 + GA.sweepDeg * Math.min(v, GA.vmax) / GA.vmax;
   function gaugePt(r, deg){ const a = deg * Math.PI / 180; return [GA.cx + r * Math.cos(a), GA.cy + r * Math.sin(a)]; }
-  const zoneColor = v => v < 60 ? '#00e676' : v < 100 ? '#ff9500' : v < 160 ? '#f43f5e' : '#ff1744';
-  const BARS = [], BAR_OFF = '#1d1d30';
+  const zoneColor = v => v < 60 ? '#19e68c' : v < 100 ? '#ffb020' : v < 160 ? '#ff3b5c' : '#ff1744';
+  const BARS = [], BAR_OFF = '#1e2331';
 
   (function buildGauge(){
     let html = '';
     for (let v = GA.step; v <= GA.vmax; v += GA.step){
       const deg = gaugeDeg(v), anchor = v % 50 === 0;
-      const p1 = gaugePt(anchor ? 73 : 78, deg), p2 = gaugePt(96, deg);
+      const p1 = gaugePt(anchor ? 72 : 78, deg), p2 = gaugePt(97, deg);
       html += '<line x1="' + p1[0].toFixed(1) + '" y1="' + p1[1].toFixed(1) + '" x2="' + p2[0].toFixed(1) + '" y2="' + p2[1].toFixed(1) +
-              '" stroke="' + BAR_OFF + '" stroke-width="4.5" stroke-linecap="round" data-v="' + v + '"/>';
+              '" stroke="' + BAR_OFF + '" stroke-width="5" stroke-linecap="round" data-v="' + v + '"/>';
     }
     $id('gaugeBars').innerHTML = html;
     $id('gaugeBars').querySelectorAll('line').forEach(el => BARS.push({ el, val: +el.dataset.v, color: zoneColor(+el.dataset.v - 0.01) }));
     let lab = '';
     [0, 50, 100, 150, 200].forEach(v => {
-      const p = gaugePt(61, gaugeDeg(v));
-      lab += '<text x="' + p[0].toFixed(1) + '" y="' + p[1].toFixed(1) + '" fill="#454560" font-size="8.5" font-family="Share Tech Mono, monospace" text-anchor="middle" dominant-baseline="middle">' + v + '</text>';
+      const p = gaugePt(110, gaugeDeg(v));          /* fuera del arco: no compite con el número */
+      lab += '<text x="' + p[0].toFixed(1) + '" y="' + p[1].toFixed(1) + '" fill="#8b91a8" font-size="10" font-family="Share Tech Mono, monospace" text-anchor="middle" dominant-baseline="middle">' + v + '</text>';
     });
     $id('gaugeLabels').innerHTML = lab;
   })();
@@ -592,15 +750,14 @@ var Live = (function(){
   }
   function setGauge(v){ velNum.style.color = zoneColor(v); setBars(v); }
 
-  function setChip(id, done){
-    const chip = $id(id);
-    if (done){
-      chip.className = 'flex items-center justify-between px-2.5 py-1 border border-dm-green/40 rounded text-xs font-mono text-dm-green bg-dm-green/5' + (on ? ' chip-in' : '');
-      chip.lastElementChild.textContent = '✓';
-    } else {
-      chip.className = 'flex items-center justify-between px-2.5 py-1 border border-dm-border rounded text-xs font-mono text-dm-muted';
-      chip.lastElementChild.textContent = '○';
-    }
+  /* ── hitos de la pista ── */
+  const MARKS = [[100, '100 m', '#19e68c', 'm100'], [201, '⅛ mi', '#ffb020', 'm201'], [402, '¼ mi', '#ff3b5c', 'm402']];
+  function setMark(id, done){
+    const el = $id(id);
+    el.classList.toggle('hit', done);
+    if (done && on){
+      el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+    } else el.classList.remove('flash');
   }
 
   /* ── curva de velocidad con marcadores de hito ── */
@@ -608,7 +765,6 @@ var Live = (function(){
   const milestonePlugin = {
     id: 'milestones',
     afterDatasetsDraw(c){
-      if (!on) return;
       const { ctx, chartArea, scales } = c;
       const data = c.data.datasets[0].data;
       const offset = pushCount - data.length;
@@ -617,20 +773,20 @@ var Live = (function(){
         const idx = m.abs - offset;
         if (idx < 0 || idx >= data.length) return;
         const x = scales.x.getPixelForValue(idx);
-        ctx.strokeStyle = m.color + '88';
+        ctx.strokeStyle = m.color + '99';
         ctx.setLineDash([4,4]); ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(x, chartArea.top + 12); ctx.lineTo(x, chartArea.bottom); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, chartArea.top + 14); ctx.lineTo(x, chartArea.bottom); ctx.stroke();
         ctx.setLineDash([]);
-        ctx.font = '9px "Share Tech Mono", monospace';
+        ctx.font = '11px "Share Tech Mono", monospace';
         ctx.fillStyle = m.color; ctx.textAlign = 'center';
-        ctx.fillText(m.label, x, chartArea.top + 8);
+        ctx.fillText(m.label, x, chartArea.top + 9);
       });
       if (data.length > 1){
         const i = data.length - 1;
         const x = scales.x.getPixelForValue(i), y = scales.y.getPixelForValue(data[i]);
-        ctx.shadowColor = '#f43f5e'; ctx.shadowBlur = 12;
-        ctx.fillStyle = '#f43f5e';
-        ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowColor = '#ff3b5c'; ctx.shadowBlur = 14;
+        ctx.fillStyle = '#ff3b5c';
+        ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
       }
       ctx.restore();
     }
@@ -643,25 +799,25 @@ var Live = (function(){
       type: 'line',
       data: { labels: [], datasets: [{
         data: [],
-        borderColor: '#f43f5e',
+        borderColor: '#ff3b5c',
         backgroundColor(context){
           const { ctx, chartArea } = context.chart;
-          if (!on || !chartArea) return 'rgba(244,63,94,0.06)';
+          if (!chartArea) return 'rgba(255,59,92,0.08)';
           const g = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-          g.addColorStop(0, 'rgba(244,63,94,0)');
-          g.addColorStop(1, 'rgba(244,63,94,0.22)');
+          g.addColorStop(0, 'rgba(255,59,92,0)');
+          g.addColorStop(1, 'rgba(255,59,92,0.25)');
           return g;
         },
-        borderWidth: 2, pointRadius: 0, tension: 0.35, fill: true
+        borderWidth: 2.5, pointRadius: 0, tension: 0.35, fill: true
       }]},
       options: {
-        responsive: true, animation: false,
+        responsive: true, maintainAspectRatio: false, animation: false,
         plugins: { legend: { display: false }, tooltip: { enabled: false } },
         scales: {
           x: { display: false },
-          y: { min: 0, suggestedMax: 180,
-               grid: { color: 'rgba(255,255,255,0.03)' },
-               ticks: { color: '#454560', font: { size: 10, family: '"Share Tech Mono"' } } }
+          y: { min: 0, suggestedMax: 180, border: { display: false },
+               grid: { color: 'rgba(255,255,255,0.04)' },
+               ticks: { color: '#8b91a8', font: { size: 11, family: '"Share Tech Mono"' }, maxTicksLimit: 6 } }
         }
       },
       plugins: [milestonePlugin]
@@ -672,7 +828,7 @@ var Live = (function(){
     const d = chart.data;
     d.labels.push(pushCount); d.datasets[0].data.push(v);
     pushCount++;
-    const win = on ? 140 : 40;
+    const win = on ? 150 : 30;
     while (d.datasets[0].data.length > win){ d.labels.shift(); d.datasets[0].data.shift(); }
     chart.update('none');
   }
@@ -699,9 +855,11 @@ var Live = (function(){
     accelBar.style.transform = 'scaleX(' + Math.min(Math.max(a, 0) / 10, 1).toFixed(3) + ')';
     distVal.textContent = Math.round(x);
     distMini.textContent = Math.round(x);
+    const p = Math.min(Math.max(x, 0) / STRIP_M, 1);
+    stripFill.style.transform = 'scaleX(' + p.toFixed(4) + ')';
+    stripBike.style.left = (p * 100).toFixed(2) + '%';
   }
   function applyPlain(){
-    accelBar.style.transition = 'transform .3s ease';
     disp.vel = tgt.vel; disp.accel = tgt.accel; disp.dist = tgt.dist;
     render(tgt.vel, tgt.accel, tgt.dist);
   }
@@ -722,12 +880,9 @@ var Live = (function(){
         if (p >= 1){ swp.active = false; setBars(disp.vel); }
         else setBars(GA.vmax * (p < 0.5 ? p * 2 : 2 - p * 2));
       }
-      /* cronómetro anclado al lanzamiento */
-      if (state === 'running'){
-        chronoEl.classList.remove('invisible');
-        chronoEl.textContent = 'T+ ' + ((now - launchPerf) / 1000).toFixed(2) + ' s';
-      }
     }
+    /* cronómetro anclado al lanzamiento */
+    if (state === 'running') chronoEl.textContent = ((now - launchPerf) / 1000).toFixed(2);
     requestAnimationFrame(frame);
   }
 
@@ -736,52 +891,57 @@ var Live = (function(){
     if (on && chart && performance.now() - lastFixAt < 3000) pushChart(disp.vel);
   }, 200);
 
-  /* cascada de flashes en los tiempos de sprint al completar el run */
-  function cascadeSprints(){
-    const rows = document.querySelectorAll('#sprintPanel .justify-between');
+  /* cascada de destellos en el timeslip al completar el run */
+  function printSlip(){
+    const slip = $id('slip');
+    if (on){ slip.classList.remove('printing'); void slip.offsetWidth; slip.classList.add('printing'); }
     let i = 0;
-    rows.forEach(row => {
-      const val = row.querySelector('.font-orbitron');
+    slip.querySelectorAll('.slip-row').forEach(row => {
+      const val = row.querySelector('.v');
       if (!val || val.textContent.trim() === '—') return;
+      if (!on) return;
       setTimeout(() => {
-        row.classList.add('flash-row'); val.classList.add('pop-val');
-        row.addEventListener('animationend', () => {
-          row.classList.remove('flash-row'); val.classList.remove('pop-val');
-        }, { once:true });
-      }, 90 * i++);
+        row.classList.add('flash');
+        row.addEventListener('animationend', () => row.classList.remove('flash'), { once:true });
+      }, 500 + 110 * i++);
     });
   }
+
+  let bannerTimer = null;
 
   return {
     /* punto GPS en vivo (1 Hz desde la moto) */
     onFix(f){
       if (state === 'done' && f.v > 5 && f.x < 50) this.reset();   /* nueva carrera sin esperar el reset */
-      if (state === 'idle' && f.v > 5){ state = 'running'; launchPerf = performance.now(); }
+      if (state === 'idle' && f.v > 5){
+        state = 'running'; launchPerf = performance.now();
+        chronoEl.classList.add('running'); chronoEl.classList.remove('t-muted');
+      }
       const prevX = tgt.dist;
       tgt.vel = f.v; tgt.accel = f.a; tgt.dist = f.x;
       lastFixAt = performance.now();
       if (f.v > maxVel){ maxVel = f.v; maxVelTxt.textContent = maxVel.toFixed(1); }
       if (f.a > maxAccel){ maxAccel = f.a; accelPeak.textContent = maxAccel.toFixed(2); }
-      [[100, '100 m', '#00e676', 'chip100'], [201, '⅛ mi', '#ff9500', 'chip201'], [402, '¼ mi', '#f43f5e', 'chip402']].forEach(function(m){
-        if (prevX < m[0] && f.x >= m[0]){ setChip(m[3], true); if (on) addMarker(m[1], m[2]); }
+      MARKS.forEach(function(m){
+        if (prevX < m[0] && f.x >= m[0]){ setMark(m[3], true); addMarker(m[1], m[2]); }
       });
       if (!on){ applyPlain(); pushChart(tgt.vel); }
     },
     /* resultados oficiales del run */
     onRunCompleted(r){
       state = 'done';
-      if (on && r && r.quarter_mile) chronoEl.textContent = 'T+ ' + parseFloat(r.quarter_mile).toFixed(2) + ' s';
+      chronoEl.classList.remove('running');
+      if (r && r.quarter_mile) chronoEl.textContent = parseFloat(r.quarter_mile).toFixed(2);
       const parts = [];
-      if (r && r.top_speed != null)     parts.push('<span>TOP <b class="text-dm-orange">' + parseFloat(r.top_speed).toFixed(1) + '</b> km/h</span>');
-      if (r && r.zero_to_100)           parts.push('<span>0→100 <b class="text-dm-green">' + parseFloat(r.zero_to_100).toFixed(2) + 's</b></span>');
-      if (r && r.quarter_mile)          parts.push('<span>¼ mi <b class="text-dm-red">' + parseFloat(r.quarter_mile).toFixed(2) + 's</b></span>');
-      if (r && r.trap_speed_quarter)    parts.push('<span>trap <b class="text-dm-blue">' + parseFloat(r.trap_speed_quarter).toFixed(1) + '</b> km/h</span>');
+      if (r && r.top_speed != null)     parts.push('<span>TOP <b class="t-orange">' + parseFloat(r.top_speed).toFixed(1) + '</b> km/h</span>');
+      if (r && r.zero_to_100)           parts.push('<span>0→100 <b class="t-green">' + parseFloat(r.zero_to_100).toFixed(2) + 's</b></span>');
+      if (r && r.quarter_mile)          parts.push('<span>¼ mi <b class="t-red">' + parseFloat(r.quarter_mile).toFixed(2) + 's</b></span>');
+      if (r && r.trap_speed_quarter)    parts.push('<span>trap <b class="t-blue">' + parseFloat(r.trap_speed_quarter).toFixed(1) + '</b> km/h</span>');
       bannerBody.innerHTML = parts.join('');
-      banner.classList.remove('hidden');
-      if (on){
-        banner.classList.add('banner-up');
-        setTimeout(cascadeSprints, 120);             /* espera al digest de Angular */
-      }
+      banner.classList.remove('hidden', 'show'); void banner.offsetWidth; banner.classList.add('show');
+      clearTimeout(bannerTimer);
+      bannerTimer = setTimeout(() => banner.classList.add('hidden'), 7000);
+      setTimeout(printSlip, 60);                       /* espera al digest de Angular */
     },
     reset(){
       state = 'idle';
@@ -789,12 +949,12 @@ var Live = (function(){
       disp.vel = 0; disp.accel = 0; disp.dist = 0;
       maxVel = 0; maxAccel = 0;
       maxVelTxt.textContent = '0.0'; accelPeak.textContent = '0.00';
-      chronoEl.classList.add('invisible'); chronoEl.textContent = 'T+ 0.00 s';
-      banner.classList.add('hidden'); banner.classList.remove('banner-up');
-      setChip('chip100', false); setChip('chip201', false); setChip('chip402', false);
+      chronoEl.classList.remove('running'); chronoEl.classList.add('t-muted'); chronoEl.textContent = '0.00';
+      setMark('m100', false); setMark('m201', false); setMark('m402', false);
       resetChart();
       render(0, 0, 0);
     },
+    tree(s){ treeEl.dataset.state = s; },
     sweep(){ if (on){ swp.active = true; swp.t0 = performance.now(); } },
     init(){ initChart(); render(0, 0, 0); requestAnimationFrame(frame); }
   };
@@ -817,6 +977,36 @@ app.service('Api', function($http) {
   this.del   = function(id) { return $http.delete('/api/runs/'+id); };
 });
 
+/* segundos con 2 decimales o "—" */
+app.filter('secs', function() {
+  return function(v) { return (v === null || v === undefined || v === '' || isNaN(v)) ? '—' : parseFloat(v).toFixed(2); };
+});
+
+/* filas de tiempos de un run (tests custom de la app o los estándar) */
+app.factory('Tiempos', function() {
+  function parse(s) { try { var a = JSON.parse(s || '[]'); return Array.isArray(a) ? a : []; } catch(e) { return []; } }
+  function distLabel(m) {
+    if (m >= 1000) return (m / 1000).toFixed(2) + ' km';
+    if (m >= 400 && m <= 403) return '¼ milla';
+    if (m >= 200 && m <= 202) return '⅛ milla';
+    return m + ' m';
+  }
+  return function(r) {
+    r = r || {};
+    var cs = parse(r.custom_speed_results), cd = parse(r.custom_distance_results);
+    var speed = cs.length
+      ? cs.map(function(t) { return { k: t.range + ' km/h', v: t.timeSeconds }; })
+      : [ { k:'0 → 30 km/h',  v:r.zero_to_30 },  { k:'0 → 60 km/h',  v:r.zero_to_60 },
+          { k:'0 → 80 km/h',  v:r.zero_to_80 },  { k:'0 → 100 km/h', v:r.zero_to_100 },
+          { k:'0 → 120 km/h', v:r.zero_to_120 }, { k:'60 → 100 km/h', v:r.sixty_to_hundred } ];
+    var dist = cd.length
+      ? cd.map(function(t) { return { k: distLabel(t.targetMeters), v: t.timeSeconds }; })
+      : [ { k:'100 m', v:r.hundred_meters }, { k:'⅛ milla · 201 m', v:r.eighth_mile },
+          { k:'¼ milla · 402 m', v:r.quarter_mile }, { k:'1 km', v:r.one_km } ];
+    return { speed: speed, dist: dist };
+  };
+});
+
 /* count-up: anima el valor numérico de las estadísticas del historial */
 app.directive('countUp', function() {
   return {
@@ -831,7 +1021,7 @@ app.directive('countUp', function() {
         if (v === null || v === undefined) { el.text('—'); cur = 0; return; }
         v = parseFloat(v);
         if (RM) { el.text(v.toFixed(dec) + suf); cur = v; return; }
-        var from = cur, t0 = performance.now(), dur = 600;
+        var from = cur, t0 = performance.now(), dur = 700;
         (function tick(now) {
           var p = Math.min((now - t0) / dur, 1);
           var e = 1 - Math.pow(1 - p, 4);                /* ease-out-quart */
@@ -843,123 +1033,176 @@ app.directive('countUp', function() {
   };
 });
 
-app.controller('AppCtrl', function($scope, $interval, Sock, Api) {
-  $scope.tab     = 'live';
-  $scope.trap    = null;
-  $scope.enVivo  = false; $scope.ultimoRun = null;
-  $scope.stMsg   = 'Esperando conexión...';
-  $scope.sp      = { z30:null,z60:null,z80:null,z100:null,z120:null,qm:null,em:null };
-  $scope.liveSpeedTests = [];
+app.controller('AppCtrl', function($scope, $timeout, Sock, Tiempos) {
+  $scope.tab           = 'live';
+  $scope.server        = false;
+  $scope.motoConectada = false;
+  $scope.fase          = 'idle';   // 'idle' | 'live' | 'done'
+  $scope.trap          = null;
+  $scope.ultimoRun     = null;
+  $scope.slip          = Tiempos(null);
+  $scope.prepSt        = '';       // '' | 'sending' | 'ok' | 'error'
+  $scope.prepMsg       = '';
+  $scope.demo          = /[?&]demo\b/.test(location.search);
 
-  $scope.motoConectada  = false;
-  $scope.prepSt         = '';   // '' | 'sending' | 'ok' | 'error'
-  $scope.prepMsg        = '';
+  var prepTimer = null, faseTimer = null;
 
-  Sock.on('moto_status', function(d) { $scope.motoConectada = !!d.conectada; });
+  Sock.on('connect',    function() { $scope.server = true; });
+  Sock.on('disconnect', function() { $scope.server = false; });
+
+  /* el árbol refleja el estado cuando no hay un run ni una preparación en curso */
+  function syncTree() {
+    if ($scope.fase === 'live' || $scope.prepSt === 'sending' || $scope.prepSt === 'ok') return;
+    Live.tree($scope.motoConectada ? 'prestage' : 'off');
+  }
+
+  Sock.on('moto_status', function(d) { $scope.motoConectada = !!d.conectada; syncTree(); });
+
+  // Verificar estado inicial de la moto
+  fetch('/api/telemetry/status').then(function(r){return r.json();}).then(function(d){
+    $scope.$apply(function(){ $scope.motoConectada = !!d.moto_conectada; syncTree(); });
+  }).catch(function(){});
+
+  $scope.prepTexto = function() {
+    if ($scope.prepMsg) return $scope.prepMsg;
+    if ($scope.fase === 'live') return 'Run en curso';
+    return $scope.motoConectada ? 'Moto en pre-stage' : 'Esperando a la moto';
+  };
+
+  function finPrep(ms) {
+    $timeout.cancel(prepTimer);
+    prepTimer = $timeout(function() { $scope.prepSt = ''; $scope.prepMsg = ''; syncTree(); }, ms);
+  }
+
+  $scope.preparar = function() {
+    if ($scope.prepSt === 'sending') return;
+    $scope.prepSt  = 'sending';
+    $scope.prepMsg = 'Enviando comando…';
+    Live.tree('stage');
+    Sock.emit('web_trigger_prepare');
+    // si el servidor no confirma, no dejar el botón colgado
+    $timeout.cancel(prepTimer);
+    prepTimer = $timeout(function() {
+      $scope.prepSt = 'error'; $scope.prepMsg = 'Sin respuesta del servidor';
+      Live.tree('fault'); finPrep(3500);
+    }, 8000);
+  };
 
   Sock.on('prepare_ok', function() {
     $scope.prepSt  = 'ok';
-    $scope.prepMsg = '✓ Moto preparada';
+    $scope.prepMsg = '¡Moto preparada! Puede salir';
+    Live.tree('countdown');             // ámbar · ámbar · ámbar · verde
     Live.sweep();                       // barrido de encendido del velocímetro
-    $interval(function() { $scope.prepSt = ''; $scope.prepMsg = ''; }, 3000, 1);
+    finPrep(4000);
   });
 
   Sock.on('prepare_error', function(d) {
     $scope.prepSt  = 'error';
     $scope.prepMsg = (d && d.mensaje) || 'Error: moto no conectada';
-    $interval(function() { $scope.prepSt = ''; $scope.prepMsg = ''; }, 3000, 1);
+    Live.tree('fault');
+    finPrep(3500);
   });
 
-  $scope.preparar = function() {
-    if ($scope.prepSt === 'sending') return;
-    $scope.prepSt  = 'sending';
-    $scope.prepMsg = 'Enviando...';
-    Sock.emit('web_trigger_prepare');
-  };
-
-  // Verificar estado inicial de la moto
-  fetch('/api/telemetry/status').then(function(r){return r.json();}).then(function(d){
-    $scope.$apply(function(){ $scope.motoConectada = !!d.moto_conectada; });
-  }).catch(function(){});
-
   // Telemetría en vivo: el motor (Live) maneja velocímetro, números,
-  // hitos de distancia y curva; Angular solo el estado de cabecera
-  Sock.on('live_point', function(d) {
-    $scope.enVivo = true;
+  // pista, curva y cronómetro; Angular solo el estado de cabecera
+  function onLivePoint(d) {
+    $timeout.cancel(faseTimer);
+    if ($scope.fase !== 'live') { $scope.fase = 'live'; Live.tree('go'); }
     Live.onFix({
       v: parseFloat(d.speed_kmh)    || 0,
       a: parseFloat(d.acceleration) || 0,
       x: parseFloat(d.distance)     || 0
     });
-    $scope.stMsg = '🟢 EN VIVO — ' + new Date().toLocaleTimeString('es-CO');
-  });
+  }
 
-  Sock.on('run_completed', function(r) {
-    $scope.enVivo    = false;
+  function onRunCompleted(r) {
+    $scope.fase      = 'done';
     $scope.ultimoRun = r;
-    $scope.stMsg     = '✅ RUN COMPLETADO — ' + r.vehicle_name;
     $scope.trap      = r.trap_speed_quarter;
-    $scope.sp = { z30:r.zero_to_30, z60:r.zero_to_60, z80:r.zero_to_80,
-                  z100:r.zero_to_100, z120:r.zero_to_120, qm:r.quarter_mile, em:r.eighth_mile };
+    $scope.slip      = Tiempos(r);
+    syncTree();
+    Live.onRunCompleted(r);   // cronómetro final, toast e impresión del timeslip
 
-    try {
-      var custom = JSON.parse(r.custom_speed_results || '[]');
-      $scope.liveSpeedTests = Array.isArray(custom) ? custom : [];
-    } catch(e) { $scope.liveSpeedTests = []; }
+    // el timeslip se queda; el velocímetro y la pista vuelven a cero
+    $timeout.cancel(faseTimer);
+    faseTimer = $timeout(function() {
+      $scope.fase = 'idle'; $scope.trap = null;
+      Live.reset(); syncTree();
+    }, 15000);
+  }
 
-    Live.onRunCompleted(r);   // cronómetro final, banner y cascada de flashes
+  Sock.on('live_point', onLivePoint);
+  Sock.on('run_completed', onRunCompleted);
 
-    $interval(function() {
-      $scope.trap=null;
-      $scope.sp={ z30:null,z60:null,z80:null,z100:null,z120:null,qm:null,em:null };
-      $scope.liveSpeedTests=[];
-      $scope.stMsg='Esperando próximo run...';
-      Live.reset();
-    }, 15000, 1);
-  });
+  /* ── modo demo (?demo): simula un run en este navegador, sin moto ni servidor ── */
+  $scope.simular = function() {
+    if ($scope.fase === 'live') return;
+    Live.reset();
+    var t = 0, x = 0, v = 0, hits = {}, res = { vehicle_name:'Demo · RS 200', created_at: Date.now(), synced_at: new Date() };
+    var marcas = { zero_to_30:30, zero_to_60:60, zero_to_80:80, zero_to_100:100, zero_to_120:120 };
+    var dists  = { hundred_meters:100, eighth_mile:201, quarter_mile:402 };
+    $scope.prepSt = 'ok'; $scope.prepMsg = 'Demo: salida en 1.5 s'; Live.tree('countdown'); Live.sweep();
+    $timeout(function() {
+      $scope.prepSt = ''; $scope.prepMsg = '';
+      var iv = setInterval(function() {
+        $scope.$apply(function() {
+          var dt = 0.25, prevV = v;
+          for (var i = 0; i < 4; i++) {          // integra a 4 Hz por cada fix de 1 Hz
+            t += dt; v = 175 * (1 - Math.exp(-t / 5.2)); x += (v / 3.6) * dt;
+            Object.keys(marcas).forEach(function(k){ if (!res[k] && v >= marcas[k]) res[k] = +t.toFixed(2); });
+            Object.keys(dists).forEach(function(k){ if (!res[k] && x >= dists[k]) res[k] = +t.toFixed(2); });
+          }
+          onLivePoint({ speed_kmh: v, acceleration: (v - prevV) / 3.6, distance: x });
+          if (x >= 402) {
+            clearInterval(iv);
+            res.top_speed = +v.toFixed(1); res.trap_speed_quarter = +v.toFixed(1); res.total_distance = x;
+            res.sixty_to_hundred = res.zero_to_100 && res.zero_to_60 ? +(res.zero_to_100 - res.zero_to_60).toFixed(2) : null;
+            $timeout(function() { onRunCompleted(res); }, 900);
+          }
+        });
+      }, 1000);
+    }, 1500);
+  };
 });
 
-app.controller('HistCtrl', function($scope, $timeout, Api, Sock) {
+app.controller('HistCtrl', function($scope, $timeout, $document, Api, Sock, Tiempos) {
   $scope.runs     = [];
   $scope.stats    = null;
-  $scope.loading  = true;
+  $scope.loading  = false;
   $scope.err      = null;
   $scope.q        = '';
   $scope.col      = 'created_at';
   $scope.desc     = true;
   $scope.newId    = null;   // fila a resaltar cuando llega un run nuevo
 
-  $scope.modalRun         = null;
-  $scope.modalCustomSpeed = [];
-  $scope.modalCustomDist  = [];
-  var modalChart          = null;
+  $scope.modalRun        = null;
+  $scope.modalSpeed      = [];
+  $scope.modalDist       = [];
+  $scope.modalSinTiempos = false;
+  var modalChart         = null;
 
   function load() {
     $scope.loading = true;
     $scope.err     = null;
     Api.runs()
       .then(function(r) { $scope.runs = r; })
-      .catch(function()  { $scope.err = 'No se pudo conectar con el servidor'; })
+      .catch(function()  { $scope.err = 'No se pudo cargar el historial'; })
       .finally(function(){ $scope.loading = false; });
-    Api.stats().then(function(s) { $scope.stats = s; });
+    Api.stats().then(function(s) { $scope.stats = s; }).catch(function(){});
   }
-
-  load();
   $scope.load = load;
+
+  // carga al abrir la pestaña (y refresca cada vez que se vuelve a ella)
+  $scope.$watch('tab', function(t) { if (t === 'historial') load(); });
 
   // Refresco automático cuando la moto sube un run nuevo,
   // con destello en la fila recién llegada
-  Sock.on('run_completed', function() {
+  Sock.on('run_completed', function(r) {
     $timeout(function() {
-      Api.runs().then(function(r) {
-        $scope.runs = r;
-        var newest = r.slice().sort(function(a, b) {
-          return new Date(b.created_at) - new Date(a.created_at);
-        })[0];
-        if (newest) {
-          $scope.newId = newest._id;
-          $timeout(function() { $scope.newId = null; }, 2600);
-        }
+      Api.runs().then(function(runs) {
+        $scope.runs  = runs;
+        $scope.newId = r && r.id;
+        $timeout(function() { $scope.newId = null; }, 2600);
       });
       Api.stats().then(function(s) { $scope.stats = s; });
     }, 800);   // margen para que el backend termine de guardar
@@ -969,128 +1212,94 @@ app.controller('HistCtrl', function($scope, $timeout, Api, Sock) {
     $scope.desc = ($scope.col === c) ? !$scope.desc : true;
     $scope.col  = c;
   };
+  // tiempos: menor es mejor → orden ascendente al elegirlos en el selector
+  $scope.$watch('col', function(c, prev) {
+    if (c !== prev) $scope.desc = (c === 'created_at' || c === 'top_speed');
+  });
 
-  $scope.parseSpeedTests = function(r) {
-    try {
-      var custom = JSON.parse(r.custom_speed_results || '[]');
-      if (Array.isArray(custom) && custom.length > 0) return custom;
-    } catch(e) {}
-    var tests = [];
-    if (r.zero_to_30)        tests.push({range:'0→30', timeSeconds:r.zero_to_30});
-    if (r.zero_to_60)        tests.push({range:'0→60', timeSeconds:r.zero_to_60});
-    if (r.zero_to_80)        tests.push({range:'0→80', timeSeconds:r.zero_to_80});
-    if (r.zero_to_100)       tests.push({range:'0→100', timeSeconds:r.zero_to_100});
-    if (r.zero_to_120)       tests.push({range:'0→120', timeSeconds:r.zero_to_120});
-    if (r.sixty_to_hundred)  tests.push({range:'60→100', timeSeconds:r.sixty_to_hundred});
-    return tests;
+  $scope.esMejor = function(campo, v) {
+    return !!($scope.stats && v && $scope.stats[campo] && Math.abs($scope.stats[campo] - v) < 1e-9);
   };
 
-  $scope.del = function(r) {
-    if (!confirm('¿Eliminar run de ' + r.vehicle_name + '?')) return;
+  $scope.salidaClase = function(q) {
+    return { good: q === 'EXCELENTE' || q === 'BUENA', mid: q === 'REGULAR', bad: q === 'POBRE' };
+  };
+
+  $scope.del = function(r, ev) {
+    if (ev) ev.stopPropagation();
+    if (!confirm('¿Eliminar el run de ' + (r.vehicle_name || 'este vehículo') + '? No se puede deshacer.')) return;
     Api.del(r._id)
       .then(function() {
-        $scope.runs.splice($scope.runs.indexOf(r), 1);
+        var i = $scope.runs.indexOf(r);
+        if (i >= 0) $scope.runs.splice(i, 1);
+        else $scope.runs = $scope.runs.filter(function(x) { return x._id !== r._id; });
+        if ($scope.modalRun && $scope.modalRun._id === r._id) $scope.cerrarModal();
         Api.stats().then(function(s) { $scope.stats = s; });
       })
       .catch(function() { alert('No se pudo eliminar'); });
   };
 
   $scope.ver = function(r) {
-    try {
-      $scope.modalCustomSpeed = JSON.parse(r.custom_speed_results || '[]') || [];
-    } catch(e) { $scope.modalCustomSpeed = []; }
-
-    try {
-      $scope.modalCustomDist = JSON.parse(r.custom_distance_results || '[]') || [];
-    } catch(e) { $scope.modalCustomDist = []; }
-
-    $scope.modalRun = r;
-    $timeout(function() { dibujarGraficaModal($scope.modalRun); }, 50);
+    var t = Tiempos(r);
+    $scope.modalSpeed = t.speed;
+    $scope.modalDist  = t.dist;
+    $scope.modalRun   = r;
+    $timeout(function() { dibujarGraficaModal(); }, 50);
   };
 
   $scope.cerrarModal = function() {
-    $scope.modalRun         = null;
-    $scope.modalCustomSpeed = [];
-    $scope.modalCustomDist  = [];
+    $scope.modalRun = null;
     if (modalChart) { modalChart.destroy(); modalChart = null; }
   };
 
-  function dibujarGraficaModal(r) {
+  // Esc cierra el detalle
+  function onKey(e) {
+    if (e.key === 'Escape' && $scope.modalRun) $scope.$apply($scope.cerrarModal);
+  }
+  $document.on('keydown', onKey);
+  $scope.$on('$destroy', function() { $document.off('keydown', onKey); });
+
+  function dibujarGraficaModal() {
     var canvas = document.getElementById('modalChart');
     if (!canvas) return;
     if (modalChart) { modalChart.destroy(); modalChart = null; }
 
     var labels = [], valores = [], colores = [];
-
-    function add(lbl, val, color) {
-      if (val !== null && val !== undefined) {
-        labels.push(lbl);
-        valores.push(parseFloat(val.toFixed ? val.toFixed(3) : val));
-        colores.push(color);
-      }
-    }
-
-    var hasCustomSpeed = $scope.modalCustomSpeed && $scope.modalCustomSpeed.length > 0;
-
-    if (hasCustomSpeed) {
-      ($scope.modalCustomSpeed || []).forEach(function(t) {
-        if (t.timeSeconds) {
-          add(t.range + ' km/h', t.timeSeconds, 'rgba(0,230,118,0.7)');
-        }
+    function add(rows, color) {
+      rows.forEach(function(t) {
+        if (t.v) { labels.push(t.k.replace(' km/h', '')); valores.push(+parseFloat(t.v).toFixed(3)); colores.push(color); }
       });
-    } else {
-      add('0→30',   r.zero_to_30,       'rgba(0,230,118,0.7)');
-      add('0→60',   r.zero_to_60,       'rgba(0,230,118,0.7)');
-      add('0→80',   r.zero_to_80,       'rgba(0,230,118,0.7)');
-      add('0→100',  r.zero_to_100,      'rgba(0,230,118,0.7)');
-      add('0→120',  r.zero_to_120,      'rgba(0,230,118,0.7)');
-      add('60→100', r.sixty_to_hundred, 'rgba(0,180,255,0.7)');
     }
+    add($scope.modalSpeed, '#19e68c');
+    add($scope.modalDist,  '#ff7a1a');
 
-    add('100 m',  r.hundred_meters,   'rgba(244,63,94,0.7)');
-    add('⅛ mi',   r.eighth_mile,      'rgba(244,63,94,0.7)');
-    add('¼ mi',   r.quarter_mile,     'rgba(255,107,0,0.7)');
-    add('1 km',   r.one_km,           'rgba(255,107,0,0.7)');
+    $scope.modalSinTiempos = labels.length === 0;
+    if ($scope.modalSinTiempos) return;
 
-    ($scope.modalCustomDist || []).forEach(function(t) {
-      if (t.timeSeconds) {
-        var lbl = t.targetMeters >= 1000
-          ? (t.targetMeters / 1000).toFixed(2) + 'km'
-          : t.targetMeters + 'm';
-        add(lbl, t.timeSeconds, 'rgba(255,214,0,0.7)');
-      }
-    });
-
-    if (labels.length === 0) {
-      var p = document.createElement('p');
-      p.style.cssText = 'text-align:center;color:#454560;font-family:monospace;font-size:0.75rem;margin-top:12px';
-      p.textContent = 'Sin tiempos registrados en este run';
-      canvas.parentElement.appendChild(p);
-      return;
-    }
-
+    var RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     modalChart = new Chart(canvas, {
       type: 'bar',
       data: {
         labels: labels,
         datasets: [{
           data: valores,
-          backgroundColor: colores,
-          borderColor: colores.map(function(c) { return c.replace('0.7','1'); }),
+          backgroundColor: colores.map(function(c) { return c + 'b3'; }),
+          borderColor: colores,
           borderWidth: 1,
-          borderRadius: 4
+          borderRadius: 5,
+          maxBarThickness: 46
         }]
       },
       options: {
-        responsive: true,
-        animation: { duration: 500 },
+        responsive: true, maintainAspectRatio: false,
+        animation: RM ? false : { duration: 600, easing: 'easeOutQuart' },
         plugins: {
           legend: { display: false },
           tooltip: { callbacks: { label: function(ctx) { return ctx.parsed.y.toFixed(2) + ' s'; } } }
         },
         scales: {
-          x: { ticks: { color: '#6b6b8a', font: { family: "'Share Tech Mono'", size: 11 } }, grid: { color: 'rgba(255,255,255,0.03)' } },
-          y: { ticks: { color: '#6b6b8a', font: { family: "'Share Tech Mono'", size: 10 }, callback: function(v) { return v + 's'; } }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true }
+          x: { ticks: { color: '#8b91a8', font: { family: "'Share Tech Mono'", size: 11 } }, grid: { display: false } },
+          y: { ticks: { color: '#8b91a8', font: { family: "'Share Tech Mono'", size: 11 }, callback: function(v) { return v + 's'; } }, grid: { color: 'rgba(255,255,255,0.05)' }, border: { display: false }, beginAtZero: true }
         }
       }
     });
