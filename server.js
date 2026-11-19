@@ -86,12 +86,35 @@ app.get('/api/telemetry/command', (req, res) => {
     res.json({ command: cmd });
 });
 
+// ── POST /api/telemetry/cdi — lecturas en vivo del CDI (RPM, avance, voltaje) ─
+// La app las envía varias veces por segundo mientras está conectada al CDI;
+// el dashboard solo muestra la tarjeta de RPM si llegan.
+const CDI_TIMEOUT_MS = 3000;
+let lastCdiAt = 0;
+const finite = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
+
+app.post('/api/telemetry/cdi', (req, res) => {
+    const { rpm, advance, volts } = req.body || {};
+    if (!finite(rpm, 0, 30000)) {
+        return res.status(400).json({ message: 'rpm inválido' });
+    }
+    lastCdiAt = Date.now();
+    io.emit('cdi_point', {
+        rpm:     Math.round(rpm),
+        advance: finite(advance, -20, 80) ? advance : null,
+        volts:   finite(volts, 0, 30) ? volts : null,
+        at:      lastCdiAt
+    });
+    res.json({ received: true });
+});
+
 // ── GET /api/telemetry/status — estado de conexión de la moto ─────
 app.get('/api/telemetry/status', (req, res) => {
     res.json({
         moto_conectada: motoConectada(),
         socket_id     : androidSocketId,
-        ultimo_poll   : lastPollAt || null
+        ultimo_poll   : lastPollAt || null,
+        cdi_conectado : Date.now() - lastCdiAt < CDI_TIMEOUT_MS
     });
 });
 

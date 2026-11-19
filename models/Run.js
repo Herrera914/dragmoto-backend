@@ -41,6 +41,9 @@ const RunSchema = new mongoose.Schema({
     valid_run:         { type: Boolean, default: true },
     launch_quality:    { type: String, default: null },
 
+    // CDI (solo si la app tenía el CDI conectado durante la corrida)
+    max_rpm:           { type: Number, default: null },
+
     synced_at: { type: Date, default: Date.now }
 }, { timestamps: true });
 

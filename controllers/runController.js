@@ -40,6 +40,7 @@ const uploadRun = async (req, res) => {
                 custom_distance_results: data.custom_distance_results,
                 trap_speed_quarter:data.trap_speed_quarter,
                 launch_quality:    data.launch_quality,
+                max_rpm:           data.max_rpm ?? null,
                 synced_at:         saved.synced_at
             });
         }

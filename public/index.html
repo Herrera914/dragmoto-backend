@@ -194,7 +194,10 @@ main{position:relative;flex:1;display:flex;flex-direction:column;width:100%;max-
 
 /* ── tiles de métricas ───────────────────────────────────── */
 .tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-@media (max-width:560px){.tiles{grid-template-columns:1fr 1fr}.tiles .tile:last-child{grid-column:1/-1}}
+.tiles.cdi-on{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:560px){.tiles,.tiles.cdi-on{grid-template-columns:1fr 1fr}.tiles:not(.cdi-on) .tile:last-child{grid-column:1/-1}}
+.tile-cdi.stale .big{color:var(--dim)}
+.tile-cdi .bar i{background:linear-gradient(90deg,var(--orange),var(--red));box-shadow:0 0 10px rgba(255,122,26,.5)}
 .tile{padding:16px;overflow:hidden}
 .tile .big{font:900 clamp(28px,3vw,38px)/1 var(--f-num);font-variant-numeric:tabular-nums;margin:12px 0 6px}
 .tile .foot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;font:500 13px var(--f-mono);color:var(--muted)}
@@ -510,7 +513,7 @@ td .num{font-size:14px;font-weight:700}
 
   <!-- Centro: métricas + pista + curva -->
   <div class="col a-main" style="--i:1">
-    <div class="tiles">
+    <div class="tiles" ng-class="{'cdi-on': cdi.visible}">
       <div class="card tile" style="--edge:rgba(43,184,255,.45)">
         <span class="label">Aceleración</span>
         <div class="big t-blue" id="accelVal">0.00</div>
@@ -528,6 +531,17 @@ td .num{font-size:14px;font-weight:700}
         <span class="label">Cronómetro</span>
         <div class="big t-muted" id="chrono">0.00</div>
         <span class="unit">segundos desde la salida</span>
+      </div>
+      <!-- RPM del CDI: solo aparece cuando la app envía datos del CDI -->
+      <div class="card tile tile-cdi" ng-show="cdi.visible" ng-class="{stale: cdi.stale}" style="--edge:rgba(255,122,26,.5)" ng-cloak>
+        <span class="label">RPM</span>
+        <div class="big t-orange">{{ cdi.stale ? '--' : (cdi.rpm | number:0) }}</div>
+        <span class="unit">{{ cdi.stale ? 'sin señal del CDI' : 'máx ' + (cdi.peak | number:0) }}</span>
+        <div class="bar"><i ng-style="{transform: 'scaleX(' + cdi.bar + ')'}"></i></div>
+        <div class="foot">
+          <span>{{ cdi.advance != null && !cdi.stale ? (cdi.advance | number:1) + '°' : '--' }}</span>
+          <span>{{ cdi.volts != null && !cdi.stale ? (cdi.volts | number:1) + ' V' : '--' }}</span>
+        </div>
       </div>
     </div>
 
@@ -649,6 +663,7 @@ td .num{font-size:14px;font-weight:700}
             <th class="sort" ng-class="{act: col==='eighth_mile'}" ng-click="o('eighth_mile')">⅛ mi<span class="arr" ng-if="col==='eighth_mile'" ng-class="{up: !desc}">▾</span></th>
             <th class="sort" ng-class="{act: col==='quarter_mile'}" ng-click="o('quarter_mile')">¼ mi<span class="arr" ng-if="col==='quarter_mile'" ng-class="{up: !desc}">▾</span></th>
             <th class="sort" ng-class="{act: col==='trap_speed_quarter'}" ng-click="o('trap_speed_quarter')">Trap<span class="arr" ng-if="col==='trap_speed_quarter'" ng-class="{up: !desc}">▾</span></th>
+            <th class="sort" ng-if="hayRpm()" ng-class="{act: col==='max_rpm'}" ng-click="o('max_rpm')">RPM máx<span class="arr" ng-if="col==='max_rpm'" ng-class="{up: !desc}">▾</span></th>
             <th>Salida</th>
             <th><span class="sr-only">Acciones</span></th>
           </tr>
@@ -663,6 +678,7 @@ td .num{font-size:14px;font-weight:700}
             <td><span ng-class="r.eighth_mile ? '' : 't-dim'">{{ r.eighth_mile | secs }}</span></td>
             <td><span ng-class="r.quarter_mile ? 't-red' : 't-dim'">{{ r.quarter_mile | secs }}</span><span class="pb" ng-if="esMejor('bestQuarterMile', r.quarter_mile)">PB</span></td>
             <td><span ng-class="r.trap_speed_quarter ? 't-blue' : 't-dim'">{{ r.trap_speed_quarter ? (r.trap_speed_quarter | number:1) + ' km/h' : '—' }}</span></td>
+            <td ng-if="hayRpm()"><span ng-class="r.max_rpm ? 't-orange' : 't-dim'">{{ r.max_rpm ? (r.max_rpm | number:0) : '—' }}</span></td>
             <td><span class="chip" ng-class="salidaClase(r.launch_quality)">{{ r.launch_quality || '—' }}</span></td>
             <td style="text-align:right">
               <button class="btn btn-sm btn-danger" ng-click="del(r, $event)" aria-label="Eliminar run">ELIMINAR</button>
@@ -1111,6 +1127,7 @@ app.controller('AppCtrl', function($scope, $timeout, Sock, Tiempos) {
   $scope.prepSt        = '';       // '' | 'sending' | 'ok' | 'error'
   $scope.prepMsg       = '';
   $scope.demo          = /[?&]demo\b/.test(location.search);
+  $scope.cdi           = { visible: false, stale: false, rpm: 0, peak: 0, advance: null, volts: null, bar: 0 };
 
   var prepTimer = null, faseTimer = null;
 
@@ -1198,6 +1215,29 @@ app.controller('AppCtrl', function($scope, $timeout, Sock, Tiempos) {
     }, 15000);
   }
 
+  // RPM en vivo del CDI. La tarjeta aparece con la primera lectura; si dejan de
+  // llegar, muestra "sin señal" en vez de congelar el último valor.
+  var cdiStaleTimer = null;
+  function onCdiPoint(d) {
+    var rpm = Math.max(0, parseFloat(d.rpm) || 0);
+    var c = $scope.cdi;
+    c.visible = true;
+    c.stale   = false;
+    c.rpm     = rpm;
+    c.peak    = Math.max(c.peak, rpm);
+    c.advance = d.advance == null ? null : parseFloat(d.advance);
+    c.volts   = d.volts == null ? null : parseFloat(d.volts);
+    // escala de la barra: 10 000 RPM o más si la moto la supera (no es el límite del motor)
+    var scale = Math.max(10000, Math.ceil(c.peak / 1000) * 1000);
+    c.bar     = Math.min(rpm / scale, 1).toFixed(3);
+    $timeout.cancel(cdiStaleTimer);
+    cdiStaleTimer = $timeout(function() { c.stale = true; c.bar = 0; }, 3000);
+  }
+  Sock.on('cdi_point', onCdiPoint);
+  fetch('/api/telemetry/status').then(function(r){return r.json();}).then(function(d){
+    if (d.cdi_conectado) $scope.$apply(function(){ $scope.cdi.visible = true; $scope.cdi.stale = true; });
+  }).catch(function(){});
+
   Sock.on('live_point', onLivePoint);
   Sock.on('run_completed', onRunCompleted);
 
@@ -1209,6 +1249,15 @@ app.controller('AppCtrl', function($scope, $timeout, Sock, Tiempos) {
     var marcas = { zero_to_30:30, zero_to_60:60, zero_to_80:80, zero_to_100:100, zero_to_120:120 };
     var dists  = { hundred_meters:100, eighth_mile:201, quarter_mile:402 };
     $scope.prepSt = 'ok'; $scope.prepMsg = 'Demo: salida en 1.5 s'; Live.tree('countdown'); Live.sweep();
+    $scope.cdi.peak = 0;
+    // RPM simuladas con cambios de marcha, para ver la tarjeta del CDI sin moto
+    var cdiDemo = setInterval(function() {
+      $scope.$apply(function() {
+        var gearSpan = 42, inGear = (v % gearSpan) / gearSpan;
+        onCdiPoint({ rpm: v < 1 ? 1400 : 3500 + inGear * 6500, advance: v < 1 ? 8 : 18 + inGear * 10, volts: 13.9 });
+      });
+    }, 250);
+    setTimeout(function() { clearInterval(cdiDemo); }, 26000);
     $timeout(function() {
       $scope.prepSt = ''; $scope.prepMsg = '';
       var iv = setInterval(function() {
@@ -1283,6 +1332,11 @@ app.controller('HistCtrl', function($scope, $timeout, $document, Api, Sock, Tiem
   $scope.$watch('col', function(c, prev) {
     if (c !== prev) $scope.desc = (c === 'created_at' || c === 'top_speed');
   });
+
+  // La columna de RPM solo aparece si alguna corrida trae datos del CDI
+  $scope.hayRpm = function() {
+    return $scope.runs.some(function(r) { return r.max_rpm != null; });
+  };
 
   $scope.esMejor = function(campo, v) {
     return !!($scope.stats && v && $scope.stats[campo] && Math.abs($scope.stats[campo] - v) < 1e-9);
