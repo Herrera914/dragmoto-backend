@@ -128,7 +128,7 @@ main{position:relative;flex:1;display:flex;flex-direction:column;width:100%;max-
   .a-cock .gauge{margin-top:auto}
   .a-cock .gauge-max{margin-bottom:auto}
   .chart-card{flex:1;display:flex;flex-direction:column;min-height:0}
-  .chart-card .chart-wrap{flex:1;height:auto;min-height:170px}
+  .chart-card .chart-wrap,.chart-card .chart-wrap.tele-wrap{flex:1;height:auto;min-height:calc(var(--lanes,4) * 56px + 24px)}
   .chart-card .chart-wrap canvas{position:absolute;inset:0}
   .a-slip > .card{flex:1;display:flex;flex-direction:column;min-height:0}
   .a-slip .slip{margin:auto;width:100%}
@@ -238,6 +238,18 @@ main{position:relative;flex:1;display:flex;flex-direction:column;width:100%;max-
 .strip-now{font:700 13px var(--f-mono);color:var(--text)}
 
 .chart-wrap{position:relative;height:190px}
+/* gráfica de telemetría: una franja por canal */
+.tc-chips{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 10px}
+.tc-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1px solid var(--line2);
+  background:var(--s1);font:600 13px var(--f-txt);color:var(--dim);transition:border-color .2s,color .2s,background .2s}
+.tc-chip i{width:8px;height:8px;border-radius:50%;background:var(--c);opacity:.35}
+.tc-chip .v{font:700 12px var(--f-mono);color:var(--dim);min-width:2.5em;text-align:right}
+.tc-chip[aria-pressed="true"]{border-color:color-mix(in srgb,var(--c) 55%,transparent);color:var(--text);background:color-mix(in srgb,var(--c) 10%,var(--s1))}
+.tc-chip[aria-pressed="true"] i{opacity:1;box-shadow:0 0 8px var(--c)}
+.tc-chip[aria-pressed="true"] .v{color:var(--c)}
+.chart-wrap.tele-wrap{height:calc(var(--lanes,4) * 70px + 24px)}
+.tele-wrap canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+@media (max-width:560px){.chart-wrap.tele-wrap{height:calc(var(--lanes,4) * 62px + 24px)}.tc-chip{padding:4px 8px;font-size:12px}}
 @media (min-width:1180px){.chart-wrap{height:220px}}
 
 /* ── timeslip ─────────────────────────────────────────────── */
@@ -615,9 +627,10 @@ td .num{font-size:14px;font-weight:700}
       </div>
     </div>
 
-    <div class="card chart-card" style="--edge:rgba(43,184,255,.35)">
-      <div class="card-h"><span class="label">Curva de velocidad</span><span class="unit">últimos 30 s</span></div>
-      <div class="chart-wrap"><canvas id="speedChart" aria-label="Gráfica de velocidad en el tiempo" role="img"></canvas></div>
+    <div class="card chart-card tele-card" style="--edge:rgba(43,184,255,.35)">
+      <div class="card-h"><span class="label">Telemetría en vivo</span><span class="unit" id="teleHint">toca la gráfica para leer valores</span></div>
+      <div class="tc-chips" id="teleChips" role="group" aria-label="Canales de la gráfica"></div>
+      <div class="chart-wrap tele-wrap" id="teleWrap"><canvas id="teleCanvas" role="img" aria-label="Telemetría en vivo: velocidad, RPM, G y distancia contra el tiempo"></canvas></div>
     </div>
   </div>
 
@@ -813,6 +826,7 @@ td .num{font-size:14px;font-weight:700}
 <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="telechart.js"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    MOTOR EN VIVO (vanilla, fuera de Angular)
@@ -893,87 +907,12 @@ var Live = (function(){
     } else el.classList.remove('flash');
   }
 
-  /* ── curva de velocidad con marcadores de hito ── */
-  let chart = null, pushCount = 0, markers = [];
-  const milestonePlugin = {
-    id: 'milestones',
-    afterDatasetsDraw(c){
-      const { ctx, chartArea, scales } = c;
-      const data = c.data.datasets[0].data;
-      const offset = pushCount - data.length;
-      ctx.save();
-      markers.forEach(m => {
-        const idx = m.abs - offset;
-        if (idx < 0 || idx >= data.length) return;
-        const x = scales.x.getPixelForValue(idx);
-        ctx.strokeStyle = m.color + '99';
-        ctx.setLineDash([4,4]); ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(x, chartArea.top + 14); ctx.lineTo(x, chartArea.bottom); ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.font = '11px "Share Tech Mono", monospace';
-        ctx.fillStyle = m.color; ctx.textAlign = 'center';
-        ctx.fillText(m.label, x, chartArea.top + 9);
-      });
-      if (data.length > 1){
-        const i = data.length - 1;
-        const x = scales.x.getPixelForValue(i), y = scales.y.getPixelForValue(data[i]);
-        ctx.shadowColor = '#ff3b5c'; ctx.shadowBlur = 14;
-        ctx.fillStyle = '#ff3b5c';
-        ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.restore();
-    }
-  };
-
-  function initChart(){
-    const el = $id('speedChart');
-    if (!el || typeof Chart === 'undefined') return;
-    chart = new Chart(el, {
-      type: 'line',
-      data: { labels: [], datasets: [{
-        data: [],
-        borderColor: '#ff3b5c',
-        backgroundColor(context){
-          const { ctx, chartArea } = context.chart;
-          if (!chartArea) return 'rgba(255,59,92,0.08)';
-          const g = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-          g.addColorStop(0, 'rgba(255,59,92,0)');
-          g.addColorStop(1, 'rgba(255,59,92,0.25)');
-          return g;
-        },
-        borderWidth: 2.5, pointRadius: 0, tension: 0.35, fill: true
-      }]},
-      options: {
-        responsive: true, maintainAspectRatio: false, animation: false,
-        plugins: { legend: { display: false }, tooltip: { enabled: false } },
-        scales: {
-          x: { display: false },
-          y: { min: 0, suggestedMax: 180, border: { display: false },
-               grid: { color: 'rgba(255,255,255,0.04)' },
-               ticks: { color: '#8b91a8', font: { size: 11, family: '"Share Tech Mono"' }, maxTicksLimit: 6 } }
-        }
-      },
-      plugins: [milestonePlugin]
-    });
-  }
-  function pushChart(v){
-    if (!chart) return;
-    const d = chart.data;
-    d.labels.push(pushCount); d.datasets[0].data.push(v);
-    pushCount++;
-    const win = on ? 150 : 30;
-    while (d.datasets[0].data.length > win){ d.labels.shift(); d.datasets[0].data.shift(); }
-    chart.update('none');
-  }
-  function addMarker(label, color){
-    markers.push({ abs: Math.max(0, pushCount - 1), label, color });
-  }
-  function resetChart(){
-    pushCount = 0; markers = [];
-    if (!chart) return;
-    chart.data.labels = []; chart.data.datasets[0].data = [];
-    chart.update('none');
-  }
+  /* la curva ahora la dibuja TeleChart (módulo Tele); aquí solo se avisan las marcas */
+  function initChart(){}
+  function pushChart(){}
+  function resetChart(){}
+  function addMarker(label, color){ if (global_Tele()) global_Tele().marker(label, color); }
+  function global_Tele(){ return typeof Tele !== 'undefined' ? Tele : null; }
 
   /* ── interpolación rAF entre fixes de 1 Hz ── */
   const disp = { vel:0, accel:0, dist:0 }, tgt = { vel:0, accel:0, dist:0 };
@@ -1019,10 +958,6 @@ var Live = (function(){
     requestAnimationFrame(frame);
   }
 
-  /* curva fluida a 5 Hz mientras llegan datos de la moto */
-  setInterval(function(){
-    if (on && chart && performance.now() - lastFixAt < 3000) pushChart(disp.vel);
-  }, 200);
 
   /* cascada de destellos en el timeslip al completar el run */
   function printSlip(){
@@ -1093,6 +1028,49 @@ var Live = (function(){
   };
 })();
 Live.init();
+
+/* ══ Tele: gráfica de telemetría en vivo ══════════════════════════
+ * Antes de la primera salida muestra los últimos 30 s (sirve para ver las
+ * RPM en ralentí). En la salida el tiempo vuelve a cero (con 3 s previos) y se
+ * dibuja la carrera completa; al terminar queda congelada hasta la siguiente. */
+var Tele = (function(){
+  var wrap = document.getElementById('teleWrap');
+  var tc = TeleChart.create(document.getElementById('teleCanvas'), document.getElementById('teleChips'), {
+    window: 30,
+    onLanes: function(n){ wrap.style.setProperty('--lanes', n); }
+  });
+  var t0 = null, running = false, frozen = false, lastV = 0, lastFixAt = 0;
+  var pre = [];   // mientras está congelada: últimos 3 s, para no perder la previa de la salida
+  function now(){ return performance.now() / 1000; }
+  function tNow(){ var n = now(); if (t0 === null) t0 = n; return n - t0; }
+  function put(id, t, v){
+    if (frozen){ pre.push([id, t, v]); while (pre.length && pre[0][1] < t - 3) pre.shift(); }
+    else tc.push(id, t, v);
+  }
+  function salida(t){
+    if (frozen){ tc.clear(); pre.forEach(function(p){ tc.push(p[0], p[1], p[2]); }); pre = []; frozen = false; }
+    tc.rebase(t, 3); t0 += t; running = true; tc.setWindow(null);
+  }
+  return {
+    fix: function(f){
+      var n = now();
+      if (n - lastFixAt > 5) lastV = 0;         // la moto dejó de enviar: la siguiente es una salida nueva
+      lastFixAt = n;
+      var t = tNow();
+      if (!running && f.v > 5 && lastV <= 5){ salida(t); t = 0; }
+      lastV = f.v;
+      put('speed', t, f.v); put('g', t, f.a / 9.81); put('dist', t, f.x);
+    },
+    cdi: function(d){
+      var t = tNow();
+      put('rpm', t, d.rpm);
+      if (d.advance != null) put('adv', t, d.advance);
+      if (d.volts != null) put('volts', t, d.volts);
+    },
+    marker: function(label, color){ if (running) tc.addMarker(tNow(), label, color); },
+    done: function(){ running = false; frozen = true; pre = []; }
+  };
+})();
 
 /* ══ Sesión: el token se guarda en este navegador y va en cada petición ══ */
 var Auth = (function() {
@@ -1272,11 +1250,13 @@ app.controller('AppCtrl', function($scope, $timeout, Sock, Tiempos) {
   function onLivePoint(d) {
     $timeout.cancel(faseTimer);
     if ($scope.fase !== 'live') { $scope.fase = 'live'; Live.tree('go'); }
-    Live.onFix({
+    var f = {
       v: parseFloat(d.speed_kmh)    || 0,
       a: parseFloat(d.acceleration) || 0,
       x: parseFloat(d.distance)     || 0
-    });
+    };
+    Tele.fix(f);     // primero la gráfica, para que las marcas caigan en este punto
+    Live.onFix(f);
   }
 
   function onRunCompleted(r) {
@@ -1286,6 +1266,7 @@ app.controller('AppCtrl', function($scope, $timeout, Sock, Tiempos) {
     $scope.slip      = Tiempos(r);
     syncTree();
     Live.onRunCompleted(r);   // cronómetro final, toast e impresión del timeslip
+    Tele.done();              // la gráfica queda con la carrera completa
 
     // el timeslip se queda; el velocímetro y la pista vuelven a cero
     $timeout.cancel(faseTimer);
@@ -1300,6 +1281,7 @@ app.controller('AppCtrl', function($scope, $timeout, Sock, Tiempos) {
   var cdiStaleTimer = null;
   function onCdiPoint(d) {
     var rpm = Math.max(0, parseFloat(d.rpm) || 0);
+    Tele.cdi({ rpm: rpm, advance: d.advance, volts: d.volts });
     var c = $scope.cdi;
     c.visible = true;
     c.stale   = false;
