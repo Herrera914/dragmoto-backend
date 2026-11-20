@@ -57,7 +57,8 @@ connectDB();
 
 // ── Middleware ─────────────────────────────────────────────────────
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'DELETE'] }));
-app.use(express.json());
+// El trazado de una carrera (gráficas de la página) puede pesar unos cientos de KB
+app.use(express.json({ limit: '3mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use((req, res, next) => {

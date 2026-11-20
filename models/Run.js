@@ -44,6 +44,11 @@ const RunSchema = new mongoose.Schema({
     // CDI (solo si la app tenía el CDI conectado durante la corrida)
     max_rpm:           { type: Number, default: null },
 
+    // Trazado para las gráficas de la página: { t, speed, dist, g, lat, lon, rpm, adv, volts, marks }
+    // No se envía en el historial (select: false), solo al abrir una carrera
+    trace:             { type: mongoose.Schema.Types.Mixed, default: null, select: false },
+    has_trace:         { type: Boolean, default: false },
+
     synced_at: { type: Date, default: Date.now }
 }, { timestamps: true });
 

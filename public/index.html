@@ -364,10 +364,20 @@ td .num{font-size:14px;font-weight:700}
 .empty h3{font:700 18px var(--f-txt);color:var(--text);letter-spacing:.04em}
 .empty.err h3{color:var(--red)}
 
+/* ── telemetría de una carrera guardada: mapa + gráfica ── */
+.run-tele{display:grid;gap:14px;grid-template-columns:1fr}
+.run-tele.con-mapa{grid-template-columns:minmax(0,1fr)}
+@media (min-width:900px){.run-tele.con-mapa{grid-template-columns:minmax(260px,34%) minmax(0,1fr)}}
+.run-map{min-height:260px;border-radius:12px;border:1px solid var(--line);overflow:hidden;background:var(--bg)}
+@media (min-width:900px){.run-map{min-height:100%}}
+.run-tele .leaflet-container{background:#0c0e14;font:500 12px var(--f-txt)}
+.run-note{color:var(--muted);font:500 14px var(--f-txt);text-align:center;padding:10px 0}
+.leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.5)}
+
 /* ── modal detalle ────────────────────────────────────────── */
 .modal{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(3,4,7,.78);backdrop-filter:blur(6px);animation:fade .25s ease both}
 @keyframes fade{from{opacity:0}}
-.sheet{width:100%;max-width:880px;max-height:92vh;overflow-y:auto;border-radius:18px;border:1px solid var(--line2);background:var(--s1);box-shadow:0 30px 80px -20px #000;animation:sheet .4s var(--ease) both}
+.sheet{width:100%;max-width:1180px;max-height:92vh;overflow-y:auto;border-radius:18px;border:1px solid var(--line2);background:var(--s1);box-shadow:0 30px 80px -20px #000;animation:sheet .4s var(--ease) both}
 @keyframes sheet{from{opacity:0;transform:translateY(24px) scale(.98)}}
 @media (max-width:640px){.modal{align-items:flex-end;padding:0}.sheet{border-radius:18px 18px 0 0;max-height:94vh}}
 .sheet-h{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:20px 22px;background:rgba(12,14,20,.96);border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
@@ -784,6 +794,20 @@ td .num{font-size:14px;font-weight:700}
         <div><span class="label">Salida</span><span style="display:block;margin-top:12px"><span class="chip" ng-class="salidaClase(modalRun.launch_quality)">{{ modalRun.launch_quality || '—' }}</span></span></div>
       </div>
 
+      <div class="sheet-sec">
+        <div class="card-h"><span class="label">Telemetría de la carrera</span>
+          <span class="unit">{{ modalTrace.estado==='cargando' ? 'cargando…' : modalTrace.estado==='ok' ? 'mueve el cursor sobre la gráfica' : '' }}</span></div>
+        <div class="run-tele" ng-class="{'con-mapa': modalTrace.mapa}" ng-show="modalTrace.estado==='ok' || modalTrace.estado==='cargando'">
+          <div class="run-map" id="runMap" ng-show="modalTrace.mapa"></div>
+          <div>
+            <div class="tc-chips" id="runChips" role="group" aria-label="Canales de la gráfica"></div>
+            <div class="chart-wrap tele-wrap" id="runWrap"><canvas id="runCanvas" role="img" aria-label="Telemetría de la carrera contra el tiempo"></canvas></div>
+          </div>
+        </div>
+        <p class="run-note" ng-if="modalTrace.estado==='sin'">Esta carrera se subió sin trazado. Las que subas desde ahora con la app traen su gráfica y su mapa.</p>
+        <p class="run-note" ng-if="modalTrace.estado==='error'">No se pudo cargar la telemetría de esta carrera.</p>
+      </div>
+
       <div class="sheet-cols">
         <div>
           <span class="label">Tiempos de velocidad</span>
@@ -827,6 +851,8 @@ td .num{font-size:14px;font-weight:700}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="telechart.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 /* ════════════════════════════════════════════════════════════
    MOTOR EN VIVO (vanilla, fuera de Angular)
@@ -1114,6 +1140,7 @@ app.service('Api', function($http) {
   this.runs  = function() { return $http.get('/api/runs').then(function(r){return r.data;}); };
   this.stats = function() { return $http.get('/api/runs/stats').then(function(r){return r.data;}); };
   this.del   = function(id) { return $http.delete('/api/runs/'+id); };
+  this.run   = function(id) { return $http.get('/api/runs/'+id).then(function(r){return r.data;}); };
 });
 
 /* segundos con 2 decimales o "—" (0 = la moto no llegó a esa marca) */
@@ -1422,16 +1449,98 @@ app.controller('HistCtrl', function($scope, $timeout, $document, Api, Sock, Tiem
       .catch(function() { alert('No se pudo eliminar'); });
   };
 
+  $scope.modalTrace = { estado: 'sin', mapa: false };
+  var runChart = null, runMap = null;
+
   $scope.ver = function(r) {
     var t = Tiempos(r);
     $scope.modalSpeed = t.speed;
     $scope.modalDist  = t.dist;
     $scope.modalRun   = r;
+    $scope.modalTrace = { estado: r.has_trace ? 'cargando' : 'sin', mapa: false };
     $timeout(function() { dibujarGraficaModal(); }, 50);
+    if (r.has_trace) {
+      Api.run(r._id).then(function(full) {
+        if ($scope.modalRun !== r) return;   // se cerró o se abrió otra
+        if (!full.trace) { $scope.modalTrace.estado = 'sin'; return; }
+        $scope.modalTrace = { estado: 'ok', mapa: !!(full.trace.lat && full.trace.lon) };
+        $timeout(function() { montarTrazado(full.trace); }, 30);
+      }).catch(function() { $scope.modalTrace.estado = 'error'; });
+    }
   };
+
+  function limpiarTrazado() {
+    if (runChart) { runChart.destroy(); runChart = null; }
+    if (runMap) { runMap.remove(); runMap = null; }
+  }
+
+  /* gráfica multicanal y mapa del recorrido, unidos por el cursor */
+  function montarTrazado(tr) {
+    limpiarTrazado();
+    var canvas = document.getElementById('runCanvas');
+    if (!canvas || typeof TeleChart === 'undefined') return;
+    var wrap = document.getElementById('runWrap');
+    var marcador = null;
+    function posicion(tc) {   // lat/lon interpolada en el instante tc
+      if (!tr.lat) return null;
+      var t = tr.t, lo = 0, hi = t.length - 1;
+      if (tc <= t[0]) hi = 0; else if (tc >= t[hi]) lo = hi;
+      else while (hi - lo > 1) { var m = (lo + hi) >> 1; if (t[m] <= tc) lo = m; else hi = m; }
+      var a = lo, b = hi;
+      if (tr.lat[a] == null || tr.lat[b] == null) return tr.lat[a] != null ? [tr.lat[a], tr.lon[a]] : null;
+      var f = t[b] === t[a] ? 0 : (tc - t[a]) / (t[b] - t[a]);
+      return [tr.lat[a] + (tr.lat[b] - tr.lat[a]) * f, tr.lon[a] + (tr.lon[b] - tr.lon[a]) * f];
+    }
+    runChart = TeleChart.create(canvas, document.getElementById('runChips'), {
+      onLanes: function(n) { wrap.style.setProperty('--lanes', n); },
+      onCursor: function(tc) {
+        if (!marcador) return;
+        var p = tc === null ? null : posicion(tc);
+        if (p) { marcador.setLatLng(p); marcador.setStyle({ opacity: 1, fillOpacity: 1 }); }
+        else marcador.setStyle({ opacity: 0, fillOpacity: 0 });
+      }
+    });
+    function serie(arr, factor) {
+      if (!arr) return [];
+      var out = [];
+      for (var i = 0; i < arr.length; i++) {
+        if (arr[i] != null) out.push([tr.t[i], arr[i] * (factor || 1)]);
+        else if (out.length && isFinite(out[out.length - 1][1])) out.push([tr.t[i], NaN]);   // corte: sin señal
+      }
+      return out;
+    }
+    runChart.setSeries({
+      speed: serie(tr.speed), g: serie(tr.g), dist: serie(tr.dist),
+      rpm: serie(tr.rpm), adv: serie(tr.adv), volts: serie(tr.volts)
+    });
+    (tr.marks || []).forEach(function(m) {
+      var c = /402/.test(m.label) ? '#ff3b5c' : /201/.test(m.label) ? '#ffb020' : /100 m/.test(m.label) ? '#19e68c'
+            : /m$/.test(m.label) ? '#2bb8ff' : '#ffe14d';
+      runChart.addMarker(m.t, m.label, c);
+    });
+
+    // Mapa con el recorrido (OpenStreetMap, colores oscuros)
+    if (tr.lat && tr.lon && typeof L !== 'undefined') {
+      var ruta = [];
+      for (var i = 0; i < tr.lat.length; i++) if (tr.lat[i] != null && tr.lon[i] != null) ruta.push([tr.lat[i], tr.lon[i]]);
+      if (ruta.length >= 2) {
+        runMap = L.map('runMap', { zoomControl: true, attributionControl: true });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19, attribution: '&copy; OpenStreetMap'
+        }).addTo(runMap);
+        var linea = L.polyline(ruta, { color: '#ff3b5c', weight: 4, opacity: .95 }).addTo(runMap);
+        L.circleMarker(ruta[0], { radius: 6, color: '#19e68c', fillColor: '#19e68c', fillOpacity: 1, weight: 2 }).bindTooltip('Salida').addTo(runMap);
+        L.circleMarker(ruta[ruta.length - 1], { radius: 6, color: '#ff3b5c', fillColor: '#ff3b5c', fillOpacity: 1, weight: 2 }).bindTooltip('Final').addTo(runMap);
+        marcador = L.circleMarker(ruta[0], { radius: 7, color: '#fff', weight: 2, fillColor: '#ff7a1a', fillOpacity: 0, opacity: 0 }).addTo(runMap);
+        runMap.fitBounds(linea.getBounds(), { padding: [24, 24] });
+        setTimeout(function() { if (runMap) { runMap.invalidateSize(); runMap.fitBounds(linea.getBounds(), { padding: [24, 24] }); } }, 250);
+      }
+    }
+  }
 
   $scope.cerrarModal = function() {
     $scope.modalRun = null;
+    limpiarTrazado();
     if (modalChart) { modalChart.destroy(); modalChart = null; }
   };
 

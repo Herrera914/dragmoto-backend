@@ -4,6 +4,7 @@ const {
     uploadRun,
     livePoint,
     getRuns,
+    getRun,
     getStats,
     deleteRun
 } = require('../controllers/runController');
@@ -16,6 +17,7 @@ router.get('/stats',  getStats);    // Estadísticas del usuario
 router.post('/live',  livePoint);   // Punto GPS en tiempo real
 router.post('/',      uploadRun);   // Run completo al finalizar
 router.get('/',       getRuns);     // Historial
+router.get('/:id',    getRun);      // Una carrera con su trazado
 router.delete('/:id', deleteRun);   // Eliminar run
 
 module.exports = router;

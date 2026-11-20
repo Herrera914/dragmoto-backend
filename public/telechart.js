@@ -43,7 +43,7 @@
     var lo = 0, hi = pts.length - 1;
     while (hi - lo > 1) { var m = (lo + hi) >> 1; if (pts[m][0] <= t) lo = m; else hi = m; }
     var a = pts[lo], b = pts[hi];
-    if (b[0] - a[0] > GAP_S) return null;
+    if (b[0] - a[0] > GAP_S || !isFinite(a[1]) || !isFinite(b[1])) return null;
     if (b[0] === a[0]) return a[1];
     return a[1] + (b[1] - a[1]) * (t - a[0]) / (b[0] - a[0]);
   }
@@ -60,6 +60,7 @@
     var dirty = true, W = 0, H = 0, dpr = 1;
     var PAD_L = 8, PAD_R = 8, AXIS_H = 22;
     var chipEls = {};
+    var alive = true, lastCursor;
 
     /* ── selector de canales ── */
     function buildChips() {
@@ -95,7 +96,8 @@
       canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
       dirty = true;
     }
-    if (global.ResizeObserver) new ResizeObserver(resize).observe(canvas);
+    var ro = global.ResizeObserver ? new ResizeObserver(resize) : null;
+    if (ro) ro.observe(canvas);
     else window.addEventListener('resize', resize);
 
     function tRange() {
@@ -140,7 +142,7 @@
         var lo = Infinity, hi = -Infinity;
         for (var i = 0; i < pts.length; i++) {
           var p = pts[i];
-          if (p[0] < t0 - GAP_S || p[0] > t1 + GAP_S) continue;
+          if (p[0] < t0 - GAP_S || p[0] > t1 + GAP_S || !isFinite(p[1])) continue;
           if (p[1] < lo) lo = p[1]; if (p[1] > hi) hi = p[1];
         }
         if (lo === Infinity) { lo = c.min != null ? c.min : 0; hi = lo + c.span; }
@@ -175,6 +177,7 @@
             var q = pts[k];
             if (q[0] < t0 - GAP_S) { prev = q; continue; }
             if (q[0] > t1 + GAP_S) break;
+            if (!isFinite(q[1])) { started = false; prev = q; continue; }   // hueco de señal
             if (!started || (prev && q[0] - prev[0] > GAP_S)) ctx.moveTo(x(q[0]), y(q[1]));
             else ctx.lineTo(x(q[0]), y(q[1]));
             started = true; prev = q;
@@ -183,7 +186,7 @@
           ctx.restore();
           /* punto del último dato (en vivo) */
           var last = pts[pts.length - 1];
-          if (cursorT === null && last[0] >= t0 && last[0] <= t1) {
+          if (cursorT === null && isFinite(last[1]) && last[0] >= t0 && last[0] <= t1) {
             ctx.fillStyle = c.color; ctx.shadowColor = c.color; ctx.shadowBlur = 10;
             ctx.beginPath(); ctx.arc(x(last[0]), y(last[1]), 3.2, 0, Math.PI * 2); ctx.fill();
             ctx.shadowBlur = 0;
@@ -191,7 +194,7 @@
         }
 
         /* lectura: en el cursor o el último valor */
-        var v = cursorT !== null ? valueAt(pts, cursorT) : (pts.length ? pts[pts.length - 1][1] : null);
+        var v = cursorT !== null ? valueAt(pts, cursorT) : (pts.length && isFinite(pts[pts.length - 1][1]) ? pts[pts.length - 1][1] : null);
         readout[id] = v;
         if (cursorT !== null && v !== null) {
           ctx.fillStyle = c.color; ctx.beginPath(); ctx.arc(x(cursorT), y(v), 3.5, 0, Math.PI * 2); ctx.fill();
@@ -230,7 +233,12 @@
       });
     }
 
-    function loop() { if (dirty && W) draw(); requestAnimationFrame(loop); }
+    function loop() {
+      if (!alive) return;
+      if (dirty && W) draw();
+      if (opts.onCursor && cursorT !== lastCursor) { lastCursor = cursorT; opts.onCursor(cursorT); }
+      requestAnimationFrame(loop);
+    }
 
     /* ── cursor con mouse o dedo ── */
     function tAtClient(clientX) {
@@ -276,7 +284,9 @@
       setWindow: function (s) { if (windowS !== s) { windowS = s; dirty = true; } },
       hasData: function (id) { return data[id].length > 0; },
       lanes: function () { return sel.length; },
-      redraw: function () { dirty = true; }
+      redraw: function () { dirty = true; },
+      /** detiene el dibujo (al cerrar la vista) */
+      destroy: function () { alive = false; if (ro) ro.disconnect(); else window.removeEventListener('resize', resize); }
     };
   }
 

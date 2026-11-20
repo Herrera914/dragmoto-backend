@@ -1,6 +1,29 @@
 const Run = require('../models/Run');
 
 // Cada usuario recibe sus eventos en su propia sala de Socket.io
+const CANALES = ['t', 'speed', 'dist', 'g', 'lat', 'lon', 'rpm', 'adv', 'volts'];
+const MAX_MUESTRAS = 20000;
+
+/** Deja solo arreglos de números (o null) del mismo largo que t; si algo no cuadra, sin trazado. */
+function limpiarTrazado(tr) {
+    if (!tr || typeof tr !== 'object' || !Array.isArray(tr.t)) return null;
+    const n = tr.t.length;
+    if (n < 2 || n > MAX_MUESTRAS) return null;
+    const out = { v: 1 };
+    for (const c of CANALES) {
+        const a = tr[c];
+        if (a == null) continue;
+        if (!Array.isArray(a) || a.length !== n) return null;
+        if (!a.every(x => x === null || (typeof x === 'number' && Number.isFinite(x)))) return null;
+        out[c] = a;
+    }
+    if (!out.speed) return null;
+    out.marks = Array.isArray(tr.marks)
+        ? tr.marks.slice(0, 30).filter(m => m && typeof m.label === 'string' && Number.isFinite(m.t))
+                  .map(m => ({ label: m.label.slice(0, 20), t: m.t }))
+        : [];
+    return out;
+}
 const salaDe = (req) => 'u:' + req.user.id;
 
 // POST /api/runs — guarda run completo al finalizar
@@ -16,7 +39,8 @@ const uploadRun = async (req, res) => {
         }
 
         // El dueño sale de la sesión, nunca del cuerpo de la petición
-        const run = new Run({ ...data, user_id: req.user.id, synced_at: new Date() });
+        const trace = limpiarTrazado(data.trace);
+        const run = new Run({ ...data, trace, has_trace: !!trace, user_id: req.user.id, synced_at: new Date() });
         const saved = await run.save();
 
         console.log(`✅ Run guardado: ${saved._id} | ${data.vehicle_name} | top: ${data.top_speed} km/h`);
@@ -86,6 +110,18 @@ const livePoint = (req, res) => {
     }
 };
 
+// GET /api/runs/:id — una carrera completa, con su trazado (solo el dueño)
+const getRun = async (req, res) => {
+    try {
+        if (!/^[0-9a-f]{24}$/i.test(req.params.id)) return res.status(404).json({ message: 'Run no encontrado' });
+        const run = await Run.findOne({ _id: req.params.id, user_id: req.user.id }).select('+trace -__v');
+        if (!run) return res.status(404).json({ message: 'Run no encontrado' });
+        res.json(run);
+    } catch (error) {
+        res.status(500).json({ message: 'Error consultando el run' });
+    }
+};
+
 // GET /api/runs — historial
 const getRuns = async (req, res) => {
     try {
@@ -146,4 +182,4 @@ const deleteRun = async (req, res) => {
     }
 };
 
-module.exports = { uploadRun, livePoint, getRuns, getStats, deleteRun };
+module.exports = { uploadRun, livePoint, getRuns, getRun, getStats, deleteRun };
