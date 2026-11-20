@@ -6,7 +6,7 @@ const RunSchema = new mongoose.Schema({
     mode:         { type: String, default: 'Auto Drag' },
     vehicle_name: { type: String, default: 'Default' },
     setup_notes:  { type: String, default: '' },
-    user_id:      { type: String, default: 'anonymous' },
+    user_id:      { type: String, default: 'anonymous', index: true },   // id de la cuenta dueña
 
     // Tests custom configurados por el usuario (JSON string → array de objetos)
     // Speed: [{"range":"0-8","timeSeconds":3.21,"distanceMeters":45.2}, ...]

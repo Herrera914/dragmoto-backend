@@ -7,8 +7,12 @@ const {
     getStats,
     deleteRun
 } = require('../controllers/runController');
+const { requireAuth } = require('../middleware/auth');
 
-router.get('/stats',  getStats);    // Estadísticas globales
+// Todas las rutas de carreras exigen sesión: cada usuario ve solo lo suyo
+router.use(requireAuth);
+
+router.get('/stats',  getStats);    // Estadísticas del usuario
 router.post('/live',  livePoint);   // Punto GPS en tiempo real
 router.post('/',      uploadRun);   // Run completo al finalizar
 router.get('/',       getRuns);     // Historial

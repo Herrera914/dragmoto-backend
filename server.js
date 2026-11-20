@@ -7,7 +7,9 @@ const cors      = require('cors');
 const path      = require('path');
 const mongoose  = require('mongoose');
 const connectDB = require('./config/database');
-const runRoutes = require('./routes/runs');
+const runRoutes  = require('./routes/runs');
+const authRoutes = require('./routes/auth');
+const { requireAuth, verificarToken } = require('./middleware/auth');
 
 const app    = express();
 const server = http.createServer(app);
@@ -16,30 +18,39 @@ const io     = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
+app.set('trust proxy', 1);   // Railway va detrás de un proxy: req.ip = IP real
 
-// ── Registro de la moto (Android) ─────────────────────────────────
-// Guarda el socket.id de la app Android cuando se conecta.
-// Solo puede haber una moto registrada a la vez.
-let androidSocketId = null;
-let pendingCommand   = null; // 'start' cuando el dashboard presiona PREPARAR
+// ── Estado en vivo por usuario ─────────────────────────────────────
+// Cada cuenta tiene su propia moto, su comando pendiente y su CDI, así
+// dos personas pueden registrar a la vez sin mezclar datos. Cada página
+// abierta se une a la sala 'u:<id>' y solo recibe los eventos de su cuenta.
+const POLL_TIMEOUT_MS = 15000;   // la app hace polling de comandos cada ~2 s
+const CDI_TIMEOUT_MS  = 3000;
 
-// La app Android ahora usa polling HTTP (GET /api/telemetry/command),
-// así que la moto cuenta como conectada si hizo poll hace poco.
-const POLL_TIMEOUT_MS = 15000;
-let lastPollAt = 0;
-let motoEstabaConectada = false;
-const motoConectada = () =>
-    androidSocketId !== null || Date.now() - lastPollAt < POLL_TIMEOUT_MS;
+const motos = new Map();   // userId -> estado
+function motoDe(userId) {
+    let m = motos.get(userId);
+    if (!m) {
+        m = { androidSocketId: null, pendingCommand: null, lastPollAt: 0, lastCdiAt: 0, conectadaAvisada: false };
+        motos.set(userId, m);
+    }
+    return m;
+}
+const sala = (userId) => 'u:' + userId;
+const motoConectada = (m) => m.androidSocketId !== null || Date.now() - m.lastPollAt < POLL_TIMEOUT_MS;
 
-function notificarEstadoMoto() {
-    const ahora = motoConectada();
-    if (ahora !== motoEstabaConectada) {
-        motoEstabaConectada = ahora;
-        console.log(ahora ? '📱 Moto conectada' : '📴 Moto desconectada');
-        io.emit('moto_status', { conectada: ahora });
+function notificarEstadoMoto(userId) {
+    const m = motoDe(userId);
+    const ahora = motoConectada(m);
+    if (ahora !== m.conectadaAvisada) {
+        m.conectadaAvisada = ahora;
+        console.log(`${ahora ? '📱 Moto conectada' : '📴 Moto desconectada'} (${userId})`);
+        io.to(sala(userId)).emit('moto_status', { conectada: ahora });
     }
 }
-setInterval(notificarEstadoMoto, 5000);
+setInterval(() => {
+    for (const userId of motos.keys()) notificarEstadoMoto(userId);
+}, 5000);
 
 // ── Base de datos ──────────────────────────────────────────────────
 connectDB();
@@ -57,7 +68,8 @@ app.use((req, res, next) => {
 app.set('io', io);
 
 // ── Rutas API ──────────────────────────────────────────────────────
-app.use('/api/runs', runRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/runs', runRoutes);   // exige sesión (ver routes/runs.js)
 
 app.get('/api/health', (req, res) => {
     res.json({
@@ -66,60 +78,63 @@ app.get('/api/health', (req, res) => {
         // Commit desplegado (Railway lo define) — para comprobar que el despliegue llegó
         version      : (process.env.RAILWAY_GIT_COMMIT_SHA || 'local').slice(0, 7),
         cdi_api      : true,
+        cuentas      : true,
         timestamp    : new Date().toISOString(),
-        moto_conectada: motoConectada(),
         db_conectada : mongoose.connection.readyState === 1
     });
 });
 
 // ── POST /api/telemetry/prepare — activa el comando de inicio ─────
-app.post('/api/telemetry/prepare', (req, res) => {
-    pendingCommand = 'start';
-    console.log('⚡ prepare HTTP → pendingCommand = start');
+app.post('/api/telemetry/prepare', requireAuth, (req, res) => {
+    motoDe(req.user.id).pendingCommand = 'start';
+    console.log(`⚡ prepare HTTP → start (${req.user.id})`);
     res.json({ ok: true, mensaje: 'Comando encolado — la moto lo recibirá en el próximo poll' });
 });
 
 // ── GET /api/telemetry/command — la moto hace polling aquí ────────
-// Devuelve el comando pendiente y lo consume (one-shot).
-app.get('/api/telemetry/command', (req, res) => {
-    const cmd    = pendingCommand;
-    pendingCommand = null;
-    lastPollAt     = Date.now();
-    notificarEstadoMoto();
+// Devuelve el comando pendiente de su cuenta y lo consume (one-shot).
+app.get('/api/telemetry/command', requireAuth, (req, res) => {
+    const m   = motoDe(req.user.id);
+    const cmd = m.pendingCommand;
+    m.pendingCommand = null;
+    m.lastPollAt     = Date.now();
+    notificarEstadoMoto(req.user.id);
     res.json({ command: cmd });
 });
 
 // ── POST /api/telemetry/cdi — lecturas en vivo del CDI (RPM, avance, voltaje) ─
 // La app las envía varias veces por segundo mientras está conectada al CDI;
-// el dashboard solo muestra la tarjeta de RPM si llegan.
-const CDI_TIMEOUT_MS = 3000;
-let lastCdiAt = 0;
+// la página solo muestra la tarjeta de RPM si llegan.
 const finite = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
 
-app.post('/api/telemetry/cdi', (req, res) => {
+app.post('/api/telemetry/cdi', requireAuth, (req, res) => {
     const { rpm, advance, volts } = req.body || {};
     if (!finite(rpm, 0, 30000)) {
         return res.status(400).json({ message: 'rpm inválido' });
     }
-    lastCdiAt = Date.now();
-    io.emit('cdi_point', {
+    const m = motoDe(req.user.id);
+    m.lastCdiAt = Date.now();
+    io.to(sala(req.user.id)).emit('cdi_point', {
         rpm:     Math.round(rpm),
         advance: finite(advance, -20, 80) ? advance : null,
         volts:   finite(volts, 0, 30) ? volts : null,
-        at:      lastCdiAt
+        at:      m.lastCdiAt
     });
     res.json({ received: true });
 });
 
 // ── GET /api/telemetry/status — estado de conexión de la moto ─────
-app.get('/api/telemetry/status', (req, res) => {
+app.get('/api/telemetry/status', requireAuth, (req, res) => {
+    const m = motoDe(req.user.id);
     res.json({
-        moto_conectada: motoConectada(),
-        socket_id     : androidSocketId,
-        ultimo_poll   : lastPollAt || null,
-        cdi_conectado : Date.now() - lastCdiAt < CDI_TIMEOUT_MS
+        moto_conectada: motoConectada(m),
+        ultimo_poll   : m.lastPollAt || null,
+        cdi_conectado : Date.now() - m.lastCdiAt < CDI_TIMEOUT_MS
     });
 });
+
+// Rutas /api desconocidas: 404 en JSON (no la página)
+app.use('/api', (req, res) => res.status(404).json({ message: 'Ruta no encontrada' }));
 
 // Dashboard — cualquier ruta no-API sirve index.html
 app.get('*', (req, res) => {
@@ -127,52 +142,51 @@ app.get('*', (req, res) => {
 });
 
 // ── WebSockets ─────────────────────────────────────────────────────
+// Toda conexión debe traer la sesión: io({ auth: { token } })
+io.use((socket, next) => {
+    const user = verificarToken(socket.handshake.auth && socket.handshake.auth.token);
+    if (!user) return next(new Error('auth'));
+    socket.data.user = user;
+    next();
+});
+
 io.on('connection', (socket) => {
+    const userId = socket.data.user.id;
+    socket.join(sala(userId));
+
+    // Estado actual de su moto al conectarse
+    const m = motoDe(userId);
+    socket.emit('moto_status', { conectada: motoConectada(m) });
 
     // ── Registro de cliente ────────────────────────────────────────
     // La app Android emite 'register' con tipo 'android' al conectarse.
-    // El dashboard web no emite 'register' — solo escucha eventos.
     socket.on('register', (data) => {
         if (data && data.tipo === 'android') {
-            androidSocketId = socket.id;
-            console.log(`📱 Moto registrada: ${socket.id}`);
-
-            // Confirma el registro a la moto
+            motoDe(userId).androidSocketId = socket.id;
+            console.log(`📱 Moto registrada: ${socket.id} (${userId})`);
             socket.emit('register_ok', { mensaje: 'Moto registrada en el servidor' });
-
-            // Notifica al dashboard que la moto está conectada
-            notificarEstadoMoto();
-        } else {
-            console.log(`🖥️  Dashboard conectado: ${socket.id}`);
+            notificarEstadoMoto(userId);
         }
     });
 
-    // ── Botón PREPARADO desde el dashboard web ─────────────────────
-    // El dashboard emite 'web_trigger_prepare' cuando el operador
-    // presiona el botón PREPARADO desde los pits.
+    // ── Botón PREPARAR desde la página ─────────────────────────────
     socket.on('web_trigger_prepare', () => {
-        pendingCommand = 'start';
-        console.log('⚡ web_trigger_prepare → pendingCommand = start');
-        // Confirma al dashboard inmediatamente; la moto lo recoge en el siguiente poll
+        motoDe(userId).pendingCommand = 'start';
+        console.log(`⚡ web_trigger_prepare → start (${userId})`);
         socket.emit('prepare_ok', { mensaje: 'Comando enviado — la moto lo recibirá en segundos' });
     });
 
-    // ── Puntos GPS en vivo desde la moto ──────────────────────────
-    // La moto emite 'live_point' con cada lectura del GPS.
-    // El servidor lo retransmite a todos los dashboards conectados.
+    // ── Puntos GPS en vivo desde la moto (por socket) ──────────────
     socket.on('live_point_from_android', (data) => {
-        socket.broadcast.emit('live_point', data);
+        socket.to(sala(userId)).emit('live_point', data);
     });
 
     // ── Desconexión ────────────────────────────────────────────────
     socket.on('disconnect', () => {
-        if (socket.id === androidSocketId) {
-            androidSocketId = null;
-            console.log(`📴 Moto desconectada: ${socket.id}`);
-            // Notifica al dashboard (sigue "conectada" si hace polling HTTP)
-            notificarEstadoMoto();
-        } else {
-            console.log(`📴 Dashboard desconectado: ${socket.id}`);
+        const mm = motoDe(userId);
+        if (socket.id === mm.androidSocketId) {
+            mm.androidSocketId = null;
+            notificarEstadoMoto(userId);   // sigue "conectada" si hace polling HTTP
         }
     });
 });
@@ -182,5 +196,4 @@ server.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
     console.log(`   Dashboard: http://localhost:${PORT}`);
     console.log(`   API:       http://localhost:${PORT}/api/runs`);
-    console.log(`   Status:    http://localhost:${PORT}/api/telemetry/status`);
 });

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html ng-app="telemetriaApp" lang="es">
+<html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -432,10 +432,56 @@ td .num{font-size:14px;font-weight:700}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+/* ══ Inicio de sesión ══════════════════════════════════════════ */
+.auth{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;padding:16px;
+  background:radial-gradient(900px 500px at 50% -10%,rgba(255,59,92,.16),transparent 70%),var(--bg)}
+.auth.show{display:flex}
+.auth-card{width:100%;max-width:380px;background:var(--s1);border:1px solid var(--line);border-radius:var(--r);padding:28px 24px;
+  box-shadow:0 30px 80px -30px rgba(0,0,0,.8)}
+.auth-card .brand{justify-content:center;margin:0 0 6px}
+.auth-sub{text-align:center;color:var(--muted);font:500 15px var(--f-txt);margin:0 0 20px}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--bg);border:1px solid var(--line);border-radius:10px;margin-bottom:18px}
+.auth-tabs button{padding:9px;border-radius:7px;font:700 12px var(--f-num);letter-spacing:.1em;color:var(--muted)}
+.auth-tabs button[aria-selected="true"]{background:var(--s3);color:var(--text)}
+.auth label{display:block;font:600 13px var(--f-txt);letter-spacing:.06em;color:var(--muted);margin:12px 0 6px;text-transform:uppercase}
+.auth input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--line2);background:var(--bg);color:var(--text);font:500 16px var(--f-txt)}
+.auth input:focus{border-color:var(--red);outline:none}
+.auth-err{min-height:20px;margin:12px 0 4px;color:var(--red);font:600 14px var(--f-txt)}
+.auth .btn-go{margin-top:6px}
+.auth .btn-go:disabled{opacity:.6;cursor:wait}
+.auth-note{text-align:center;color:var(--dim);font:500 13px var(--f-txt);margin:14px 0 0}
+.pill-user{gap:9px;padding-right:6px}
+.pill-user .who{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.pill-user button{padding:3px 9px;border-radius:999px;border:1px solid var(--line2);font:600 12px var(--f-txt);color:var(--muted)}
+.pill-user button:hover{color:var(--text);border-color:var(--red)}
+@media (max-width:760px){.pill-user .who{max-width:90px}}
 </style>
 </head>
 
 <body ng-controller="AppCtrl">
+
+<!-- ══ INICIO DE SESIÓN (fuera de Angular: se muestra antes de arrancar la página) ══ -->
+<div class="auth" id="auth" role="dialog" aria-labelledby="authTitle">
+  <form class="auth-card" id="authForm" novalidate>
+    <div class="brand"><div class="brand-mark" aria-hidden="true">DM</div><div class="brand-name" id="authTitle">DRAG<b>MOTO</b></div></div>
+    <p class="auth-sub">Cada cuenta ve solo su moto y sus carreras</p>
+    <div class="auth-tabs" role="tablist">
+      <button type="button" role="tab" id="authTabLogin" aria-selected="true">ENTRAR</button>
+      <button type="button" role="tab" id="authTabReg" aria-selected="false">CREAR CUENTA</button>
+    </div>
+    <div id="authNameRow" hidden>
+      <label for="authName">Nombre (opcional)</label>
+      <input id="authName" autocomplete="name" maxlength="40">
+    </div>
+    <label for="authEmail">Correo</label>
+    <input id="authEmail" type="email" autocomplete="email" required>
+    <label for="authPass">Contraseña</label>
+    <input id="authPass" type="password" autocomplete="current-password" required minlength="6">
+    <div class="auth-err" id="authErr" role="alert"></div>
+    <button class="btn-go" id="authBtn" type="submit">ENTRAR</button>
+    <p class="auth-note">Usa la misma cuenta en la app (Ajustes › Cuenta)</p>
+  </form>
+</div>
 
 <header class="topbar"><div class="topbar-in">
   <div class="brand">
@@ -453,6 +499,10 @@ td .num{font-size:14px;font-weight:700}
     </div>
     <div class="pill" ng-class="{on: motoConectada}" title="La moto consulta el servidor cada pocos segundos">
       <span class="dot"></span><span>Moto</span><span class="pill-txt-long">{{ motoConectada ? 'conectada' : 'desconectada' }}</span>
+    </div>
+    <div class="pill pill-user" ng-show="usuario" title="Cuenta con la que entraste">
+      <span class="who">{{ usuario.name || usuario.email }}</span>
+      <button type="button" ng-click="salir()">Salir</button>
     </div>
   </div>
 </div></header>
@@ -1044,10 +1094,38 @@ var Live = (function(){
 })();
 Live.init();
 
+/* ══ Sesión: el token se guarda en este navegador y va en cada petición ══ */
+var Auth = (function() {
+  var K_TOKEN = 'dm_token', K_USER = 'dm_user';
+  function get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }
+  function set(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (_) {} }
+  var A = {
+    token: get(K_TOKEN),
+    user:  (function() { try { return JSON.parse(get(K_USER) || 'null'); } catch (_) { return null; } })(),
+    save: function(token, user) { A.token = token; A.user = user; set(K_TOKEN, token); set(K_USER, JSON.stringify(user)); },
+    headers: function(extra) { var h = extra || {}; if (A.token) h.Authorization = 'Bearer ' + A.token; return h; },
+    /* sesión vencida o cerrada: se borra y se vuelve a la pantalla de entrada */
+    logout: function() { set(K_TOKEN, null); set(K_USER, null); location.reload(); }
+  };
+  return A;
+})();
+function apiFetch(url) { return fetch(url, { headers: Auth.headers() }); }
+
 var app = angular.module('telemetriaApp', []);
 
+/* cada petición lleva la sesión; si el servidor la rechaza, se vuelve a entrar */
+app.factory('authInterceptor', function($q) {
+  return {
+    request: function(c) { c.headers = Auth.headers(c.headers); return c; },
+    responseError: function(r) { if (r.status === 401 && Auth.token) Auth.logout(); return $q.reject(r); }
+  };
+});
+app.config(function($httpProvider) { $httpProvider.interceptors.push('authInterceptor'); });
+
 app.service('Sock', function($rootScope) {
-  var s = io();
+  var s = io({ auth: { token: Auth.token } });
+  // sesión inválida o vencida: el servidor rechaza el socket
+  s.on('connect_error', function(e) { if (e && e.message === 'auth' && Auth.token) Auth.logout(); });
   this.on = function(ev, cb) {
     s.on(ev, function(d) { $rootScope.$apply(function() { cb(d); }); });
   };
@@ -1127,6 +1205,8 @@ app.controller('AppCtrl', function($scope, $timeout, Sock, Tiempos) {
   $scope.prepSt        = '';       // '' | 'sending' | 'ok' | 'error'
   $scope.prepMsg       = '';
   $scope.demo          = /[?&]demo\b/.test(location.search);
+  $scope.usuario       = Auth.user;
+  $scope.salir         = function() { Auth.logout(); };
   $scope.cdi           = { visible: false, stale: false, rpm: 0, peak: 0, advance: null, volts: null, bar: 0 };
 
   var prepTimer = null, faseTimer = null;
@@ -1143,7 +1223,7 @@ app.controller('AppCtrl', function($scope, $timeout, Sock, Tiempos) {
   Sock.on('moto_status', function(d) { $scope.motoConectada = !!d.conectada; syncTree(); });
 
   // Verificar estado inicial de la moto
-  fetch('/api/telemetry/status').then(function(r){return r.json();}).then(function(d){
+  apiFetch('/api/telemetry/status').then(function(r){return r.json();}).then(function(d){
     $scope.$apply(function(){ $scope.motoConectada = !!d.moto_conectada; syncTree(); });
   }).catch(function(){});
 
@@ -1234,7 +1314,7 @@ app.controller('AppCtrl', function($scope, $timeout, Sock, Tiempos) {
     cdiStaleTimer = $timeout(function() { c.stale = true; c.bar = 0; }, 3000);
   }
   Sock.on('cdi_point', onCdiPoint);
-  fetch('/api/telemetry/status').then(function(r){return r.json();}).then(function(d){
+  apiFetch('/api/telemetry/status').then(function(r){return r.json();}).then(function(d){
     if (d.cdi_conectado) $scope.$apply(function(){ $scope.cdi.visible = true; $scope.cdi.stale = true; });
   }).catch(function(){});
 
@@ -1426,6 +1506,51 @@ app.controller('HistCtrl', function($scope, $timeout, $document, Api, Sock, Tiem
     });
   }
 });
+/* ══ Arranque: con sesión válida arranca la página; si no, pide entrar ══ */
+(function() {
+  var modo = 'login';
+  var $ = function(id) { return document.getElementById(id); };
+  function setModo(m) {
+    modo = m;
+    $('authTabLogin').setAttribute('aria-selected', m === 'login');
+    $('authTabReg').setAttribute('aria-selected', m === 'register');
+    $('authNameRow').hidden = m !== 'register';
+    $('authPass').autocomplete = m === 'login' ? 'current-password' : 'new-password';
+    $('authBtn').textContent = m === 'login' ? 'ENTRAR' : 'CREAR CUENTA';
+    $('authErr').textContent = '';
+  }
+  $('authTabLogin').onclick = function() { setModo('login'); };
+  $('authTabReg').onclick   = function() { setModo('register'); };
+  $('authForm').onsubmit = function(e) {
+    e.preventDefault();
+    var email = $('authEmail').value.trim(), pass = $('authPass').value;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $('authErr').textContent = 'Escribe un correo válido'; return; }
+    if (pass.length < 6) { $('authErr').textContent = 'La contraseña debe tener al menos 6 caracteres'; return; }
+    $('authBtn').disabled = true; $('authErr').textContent = '';
+    fetch('/api/auth/' + modo, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: pass, name: $('authName').value.trim() })
+    }).then(function(r) {
+      return r.json().catch(function() { return {}; }).then(function(d) {
+        if (!r.ok || !d.token) throw new Error(d.message || 'No se pudo entrar');
+        Auth.save(d.token, d.user);
+        location.reload();
+      });
+    }).catch(function(err) {
+      $('authErr').textContent = err.message === 'Failed to fetch' ? 'Sin conexión con el servidor' : err.message;
+      $('authBtn').disabled = false;
+    });
+  };
+  function pedirEntrada() { $('auth').classList.add('show'); setTimeout(function() { $('authEmail').focus(); }, 50); }
+  function arrancar() { angular.bootstrap(document, ['telemetriaApp']); }
+
+  // ?demo funciona sin cuenta (simula una carrera en este navegador)
+  if (!Auth.token) { if (/[?&]demo\b/.test(location.search)) arrancar(); else pedirEntrada(); return; }
+  apiFetch('/api/auth/me').then(function(r) {
+    if (r.status === 401) { Auth.logout(); return; }
+    return r.json().then(function(u) { if (u && u.email) Auth.save(Auth.token, u); arrancar(); });
+  }).catch(arrancar);   // servidor caído: arranca igual y se reconecta solo
+})();
 </script>
 </body>
 </html>

@@ -1,5 +1,8 @@
 const Run = require('../models/Run');
 
+// Cada usuario recibe sus eventos en su propia sala de Socket.io
+const salaDe = (req) => 'u:' + req.user.id;
+
 // POST /api/runs — guarda run completo al finalizar
 const uploadRun = async (req, res) => {
     try {
@@ -12,15 +15,16 @@ const uploadRun = async (req, res) => {
             return res.status(422).json({ message: 'Run inválido, no se guardó' });
         }
 
-        const run = new Run({ ...data, synced_at: new Date() });
+        // El dueño sale de la sesión, nunca del cuerpo de la petición
+        const run = new Run({ ...data, user_id: req.user.id, synced_at: new Date() });
         const saved = await run.save();
 
         console.log(`✅ Run guardado: ${saved._id} | ${data.vehicle_name} | top: ${data.top_speed} km/h`);
 
-        // Emitir evento a todos los clientes del dashboard
+        // Emitir evento solo a las páginas abiertas de este usuario
         const io = req.app.get('io');
         if (io) {
-            io.emit('run_completed', {
+            io.to(salaDe(req)).emit('run_completed', {
                 id:                saved._id,
                 vehicle_name:      data.vehicle_name,
                 top_speed:         data.top_speed,
@@ -62,10 +66,10 @@ const livePoint = (req, res) => {
     try {
         const { speed_kmh, acceleration, distance, timestamp, session_id } = req.body;
 
-        // Reemite el punto a todos los clientes del dashboard al instante
+        // Reemite el punto al instante, solo a las páginas de este usuario
         const io = req.app.get('io');
         if (io) {
-            io.emit('live_point', {
+            io.to(salaDe(req)).emit('live_point', {
                 speed_kmh:   speed_kmh   || 0,
                 acceleration:acceleration || 0,
                 distance:    distance    || 0,
@@ -85,8 +89,8 @@ const livePoint = (req, res) => {
 // GET /api/runs — historial
 const getRuns = async (req, res) => {
     try {
-        const filter = {};
-        if (req.query.user_id) filter.user_id = req.query.user_id;
+        // Solo las carreras del usuario con sesión (se ignora ?user_id)
+        const filter = { user_id: req.user.id };
 
         const runs = await Run.find(filter)
             .sort({ created_at: -1 })
@@ -105,11 +109,11 @@ const mejorTiempo = (campo) => ({
     $min: { $cond: [{ $gt: [campo, 0] }, campo, null] }
 });
 
-// GET /api/runs/stats — estadísticas globales
+// GET /api/runs/stats — estadísticas del usuario
 const getStats = async (req, res) => {
     try {
         const stats = await Run.aggregate([
-            { $match: { valid_run: true } },
+            { $match: { valid_run: true, user_id: req.user.id } },
             {
                 $group: {
                     _id:                null,
@@ -132,7 +136,9 @@ const getStats = async (req, res) => {
 // DELETE /api/runs/:id
 const deleteRun = async (req, res) => {
     try {
-        const deleted = await Run.findByIdAndDelete(req.params.id);
+        // Solo puede borrar sus propias carreras
+        if (!/^[0-9a-f]{24}$/i.test(req.params.id)) return res.status(404).json({ message: 'Run no encontrado' });
+        const deleted = await Run.findOneAndDelete({ _id: req.params.id, user_id: req.user.id });
         if (!deleted) return res.status(404).json({ message: 'Run no encontrado' });
         res.json({ message: 'Run eliminado' });
     } catch (error) {
