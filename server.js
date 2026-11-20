@@ -63,6 +63,9 @@ app.get('/api/health', (req, res) => {
     res.json({
         status       : 'ok',
         server       : 'DragMoto API v2',
+        // Commit desplegado (Railway lo define) — para comprobar que el despliegue llegó
+        version      : (process.env.RAILWAY_GIT_COMMIT_SHA || 'local').slice(0, 7),
+        cdi_api      : true,
         timestamp    : new Date().toISOString(),
         moto_conectada: motoConectada(),
         db_conectada : mongoose.connection.readyState === 1
