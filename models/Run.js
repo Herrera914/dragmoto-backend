@@ -29,6 +29,7 @@ const RunSchema = new mongoose.Schema({
     one_km:         { type: Number, default: null },
 
     // Trap speeds (km/h)
+    trap_speed_eighth:  { type: Number, default: null },   // la app la manda desde siempre
     trap_speed_quarter: { type: Number, default: null },
 
     // Power

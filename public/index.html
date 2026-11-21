@@ -391,6 +391,9 @@ td .num{font-size:14px;font-weight:700}
 .sheet-h{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:20px 22px;background:rgba(12,14,20,.96);border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
 .sheet-h h2{font:900 19px var(--f-num);letter-spacing:.08em}
 .sheet-h p{font:500 13px var(--f-mono);color:var(--muted);margin-top:6px}
+.sheet-acts{display:flex;gap:8px;align-items:flex-start}
+.share-btn{height:38px;padding:0 12px;border-radius:10px;border:1px solid var(--line2);font:700 10px var(--f-num);letter-spacing:.1em;color:var(--muted);white-space:nowrap}
+.share-btn:hover{color:var(--text);border-color:var(--red)}
 .sheet-h p.setup-line{font:600 14px var(--f-txt);color:var(--text);margin-top:8px;padding:6px 10px;border-radius:8px;border:1px solid var(--line2);background:var(--s1);display:inline-block}
 .x{width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:10px;border:1px solid var(--line2);color:var(--muted);transition:color .2s,border-color .2s}
 .x:hover{color:var(--red);border-color:var(--red)}
@@ -852,7 +855,10 @@ td .num{font-size:14px;font-weight:700}
           <p>{{ modalRun.created_at | date:'dd/MM/yyyy HH:mm' }} · {{ modalRun.mode }}</p>
           <p class="setup-line" ng-if="modalSetup" title="Configuración de la moto en esta carrera">{{ modalSetup }}</p>
         </div>
-        <button class="x" ng-click="cerrarModal()" aria-label="Cerrar">✕</button>
+        <div class="sheet-acts">
+          <button class="share-btn" type="button" ng-click="compartirTimeslip()" title="Compartir o descargar el timeslip como imagen">TIMESLIP</button>
+          <button class="x" ng-click="cerrarModal()" aria-label="Cerrar">✕</button>
+        </div>
       </div>
 
       <div class="kpis">
@@ -1664,6 +1670,70 @@ app.controller('HistCtrl', function($scope, $timeout, $document, Api, Sock, Tiem
     $scope.motos = Object.keys(vistas).sort();
     if ($scope.filtro.moto && !vistas[$scope.filtro.moto]) $scope.filtro.moto = '';
   });
+
+  /* Timeslip como imagen (igual que el de la app): se comparte en el celular o se descarga en el PC */
+  function dibujarTimeslip(r) {
+    var W = 1080, H = 1600, cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    var c = cv.getContext('2d'), ink = '#15171c', faint = '#6b6f7a', red = '#e11d48';
+    var mono = "'Share Tech Mono', ui-monospace, monospace";
+    c.fillStyle = '#07080b'; c.fillRect(0, 0, W, H);
+    var L = 110, R = W - 110, T = 90, B = H - 90;
+    c.fillStyle = '#f2f1ec'; c.fillRect(L, T, R - L, B - T);
+    c.fillStyle = '#07080b';
+    for (var x = L; x < R; x += 28) { c.beginPath(); c.arc(x + 14, T, 10, 0, 7); c.arc(x + 14, B, 10, 0, 7); c.fill(); }
+    function txt(t, x, y, size, color, bold, align) { c.font = (bold ? '700 ' : '400 ') + size + 'px ' + mono; c.fillStyle = color; c.textAlign = align || 'left'; c.fillText(t, x, y); }
+    var cx = W / 2, y = T + 110, l = L + 60, rr = R - 60;
+    txt('DRAGMOTO', cx, y, 66, ink, true, 'center'); y += 50;
+    txt('T I M E S L I P', cx, y, 30, red, true, 'center'); y += 46;
+    var d = new Date(r.created_at);
+    txt(d.toLocaleDateString('es-CO') + ' · ' + d.toLocaleTimeString('es-CO'), cx, y, 28, faint, false, 'center');
+    function divider() { y += 36; c.strokeStyle = '#b9b8b1'; c.lineWidth = 3; c.setLineDash([14, 10]); c.beginPath(); c.moveTo(L + 50, y); c.lineTo(R - 50, y); c.stroke(); c.setLineDash([]); y += 56; }
+    function row(k, v, color, big) { txt(k, l, y, big ? 34 : 32, faint); txt(v, rr, y, big ? 44 : 36, color || ink, true, 'right'); y += big ? 66 : 58; }
+    function section(t) { txt(t, l, y, 24, red, true); y += 48; }
+    function secs(v) { return v != null ? v.toFixed(2).replace('.', ',') + ' s' : '—'; }
+    function trap(t, v) { return t != null ? secs(t) + (v != null ? ' @ ' + Math.round(v) : '') : '—'; }
+    divider();
+    row('VEHÍCULO', (r.vehicle_name && r.vehicle_name !== 'Default' ? r.vehicle_name : '—').slice(0, 18));
+    var setup = resumenSetup(r.setup_notes);
+    if (setup) {
+      c.font = '400 26px ' + mono; var linea = '', lineas = [];
+      setup.split(' ').forEach(function(w) { var p = linea ? linea + ' ' + w : w; if (c.measureText(p).width > rr - l && linea) { lineas.push(linea); linea = w; } else linea = p; });
+      if (linea) lineas.push(linea);
+      lineas.slice(0, 2).forEach(function(t) { txt(t, l, y, 26, faint); y += 38; }); y += 6;
+    }
+    divider();
+    section('V E L O C I D A D');
+    row('0 → 60 km/h', secs(r.zero_to_60)); row('0 → 100 km/h', secs(r.zero_to_100)); y += 10;
+    section('D I S T A N C I A');
+    row('100 m', secs(r.hundred_meters)); row('⅛ milla · 201 m', trap(r.eighth_mile, r.trap_speed_eighth));
+    row('¼ milla · 402 m', trap(r.quarter_mile, r.trap_speed_quarter), red, true);
+    divider();
+    row('VEL. MÁXIMA', (r.top_speed || 0).toFixed(1).replace('.', ',') + ' km/h');
+    if (r.max_rpm) row('RPM MÁXIMAS', Math.round(r.max_rpm).toLocaleString('es-CO'));
+    var by = B - 190, bx = l, seed = (r.created_at || 1) % 2147483647;
+    c.fillStyle = ink;
+    while (bx < rr) { seed = (seed * 48271) % 2147483647; var w = 3 + (seed % 4) * 3; c.fillRect(bx, by, w, 90); bx += w + 4 + ((seed >> 3) % 4) * 2; }
+    txt('Medido con la app DragMoto', cx, B - 50, 24, faint, false, 'center');
+    return cv;
+  }
+
+  $scope.compartirTimeslip = function() {
+    var r = $scope.modalRun; if (!r) return;
+    var nombre = 'timeslip-' + (r.vehicle_name || 'dragmoto').replace(/[^\w-]+/g, '_') + '-' + new Date(r.created_at).toISOString().slice(0, 10) + '.png';
+    dibujarTimeslip(r).toBlob(function(blob) {
+      if (!blob) return;
+      var file = new File([blob], nombre, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: 'Mi timeslip DragMoto' }).catch(function() {});
+      } else {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = nombre;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function() { URL.revokeObjectURL(a.href); }, 2000);
+      }
+    }, 'image/png');
+  };
 
   $scope.ver = function(r) {
     $scope.modalSetup = resumenSetup(r.setup_notes);
