@@ -40,7 +40,14 @@ const uploadRun = async (req, res) => {
 
         // El dueño sale de la sesión, nunca del cuerpo de la petición
         const trace = limpiarTrazado(data.trace);
-        const run = new Run({ ...data, trace, has_trace: !!trace, user_id: req.user.id, synced_at: new Date() });
+        // Textos con tope: nombre de la moto y su configuración (JSON de la app)
+        const texto = (v, max) => (typeof v === 'string' ? v.slice(0, max) : undefined);
+        const run = new Run({
+            ...data,
+            vehicle_name: texto(data.vehicle_name, 60),
+            setup_notes:  texto(data.setup_notes, 1000),
+            trace, has_trace: !!trace, user_id: req.user.id, synced_at: new Date()
+        });
         const saved = await run.save();
 
         console.log(`✅ Run guardado: ${saved._id} | ${data.vehicle_name} | top: ${data.top_speed} km/h`);
