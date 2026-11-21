@@ -15,6 +15,8 @@ const UserSchema = new mongoose.Schema({
         app: { type: Boolean, default: true }    // usar la app (subir carreras, datos en vivo)
     },
     aprobado_en:    { type: Date, default: null },
+    // Al cambiar la contraseña, las sesiones anteriores dejan de valer
+    clave_cambiada_en: { type: Date, default: null },
     nota:           { type: String, default: '', maxlength: 200 },   // nota interna del admin
     ultimo_uso:     { type: Date, default: null },
     ultimo_cliente: { type: String, default: null }                   // 'web' | 'app'

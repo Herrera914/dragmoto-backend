@@ -119,4 +119,36 @@ const me = async (req, res) => {
     }
 };
 
-module.exports = { register, login, me };
+// POST /api/auth/clave  { actual, nueva } — cambia la propia contraseña.
+// Las sesiones abiertas en otros equipos dejan de valer; este equipo recibe una nueva.
+const cambiarClave = async (req, res) => {
+    if (demasiadosIntentos(req)) return res.status(429).json({ message: 'Demasiados intentos, espera unos minutos' });
+    if (!dbLista()) return res.status(503).json({ message: 'La base de datos no está disponible' });
+    const actual = String(req.body?.actual || '');
+    const nueva  = String(req.body?.nueva || '');
+    if (nueva.length < MIN_PASS || nueva.length > MAX_PASS) {
+        return res.status(400).json({ message: `La contraseña nueva debe tener al menos ${MIN_PASS} caracteres` });
+    }
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(401).json({ message: 'La cuenta ya no existe' });
+        if (!(await bcrypt.compare(actual, user.password_hash))) {
+            return res.status(400).json({ message: 'La contraseña actual no es correcta' });
+        }
+        if (await bcrypt.compare(nueva, user.password_hash)) {
+            return res.status(400).json({ message: 'La contraseña nueva es igual a la actual' });
+        }
+        user.password_hash = await bcrypt.hash(nueva, 10);
+        user.clave_cambiada_en = new Date();
+        await user.save();
+        cuentas.invalidar(user._id);
+        // el token nuevo (firmado ahora) queda dentro del margen de 1 s de sesionVieja
+        cuentas.anotar('clave', { actor: user.email, objetivo: user.email, detalle: 'cambió su contraseña' });
+        res.json({ token: firmarToken(user), user: publico(user), message: 'Contraseña cambiada' });
+    } catch (e) {
+        console.error('❌ Cambiando contraseña:', e.message);
+        res.status(500).json({ message: 'Error interno del servidor' });
+    }
+};
+
+module.exports = { register, login, me, cambiarClave };

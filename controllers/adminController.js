@@ -1,3 +1,5 @@
+const crypto    = require('crypto');
+const bcrypt    = require('bcryptjs');
 const mongoose  = require('mongoose');
 const User      = require('../models/User');
 const Run       = require('../models/Run');
@@ -184,6 +186,39 @@ const eliminar = async (req, res) => {
     }
 };
 
+/** Contraseña temporal fácil de dictar: sin letras que se confunden (0/O, 1/l/I). */
+function claveTemporal() {
+    const abc = 'abcdefghjkmnpqrstuvwxyz23456789';
+    const b = crypto.randomBytes(10);
+    let s = '';
+    for (let i = 0; i < 10; i++) s += abc[b[i] % abc.length];
+    return s.slice(0, 5) + '-' + s.slice(5);
+}
+
+// POST /api/admin/usuarios/:id/clave — contraseña temporal para quien la olvidó.
+// Se muestra una sola vez al admin; las sesiones abiertas de esa cuenta se cierran.
+const restablecerClave = async (req, res) => {
+    if (!dbLista()) return sinBase(res);
+    const id = req.params.id;
+    if (!esId(id)) return res.status(404).json({ message: 'Cuenta no encontrada' });
+    if (id === req.user.id) return res.status(400).json({ message: 'Para tu cuenta usa "Cambiar contraseña"' });
+    try {
+        const u = await User.findById(id);
+        if (!u) return res.status(404).json({ message: 'Cuenta no encontrada' });
+        const clave = claveTemporal();
+        u.password_hash = await bcrypt.hash(clave, 10);
+        u.clave_cambiada_en = new Date();
+        await u.save();
+        cuentas.invalidar(id);
+        desconectar(req, id);
+        cuentas.anotar('clave', { actor: req.user.email, objetivo: u.email, detalle: 'contraseña restablecida por el admin' });
+        res.json({ clave, email: u.email });
+    } catch (e) {
+        console.error('❌ admin/clave:', e.message);
+        res.status(500).json({ message: 'Error interno del servidor' });
+    }
+};
+
 // GET /api/admin/actividad
 const actividad = async (req, res) => {
     if (!dbLista()) return sinBase(res);
@@ -195,4 +230,4 @@ const actividad = async (req, res) => {
     }
 };
 
-module.exports = { resumen, usuarios, actualizar, eliminar, actividad };
+module.exports = { resumen, usuarios, actualizar, eliminar, actividad, restablecerClave };

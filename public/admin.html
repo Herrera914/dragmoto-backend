@@ -90,6 +90,7 @@ h2{font:900 13px var(--f-num);letter-spacing:.16em;color:var(--muted);margin-bot
 .modal-c p{color:var(--muted);font:500 16px/1.45 var(--f-txt)}
 .modal-c label{display:flex;gap:8px;align-items:center;margin-top:14px;font:600 15px var(--f-txt)}
 .modal-r{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.temp{margin-top:14px;padding:14px;border-radius:10px;border:1px dashed var(--yellow);text-align:center;font:700 24px var(--f-mono);letter-spacing:.08em;color:var(--yellow);user-select:all}
 .gate{max-width:440px;margin:12vh auto;padding:24px;text-align:center;border:1px solid var(--line);border-radius:var(--r);background:var(--s1)}
 .gate p{color:var(--muted);margin:10px 0 16px;font:500 16px var(--f-txt)}
 @media (max-width:900px){
@@ -218,6 +219,27 @@ h2{font:900 13px var(--f-num);letter-spacing:.16em;color:var(--muted);margin-bot
     });
   }
 
+  /* contraseña temporal: se ve una sola vez, con botón para copiarla */
+  function mostrarClave(email, clave) {
+    var cerrar = function() { m.remove(); };
+    var copiar = el('button', { class: 'btn', type: 'button', text: 'COPIAR', onclick: function() {
+      var b = this;
+      (navigator.clipboard ? navigator.clipboard.writeText(clave) : Promise.reject())
+        .then(function() { b.textContent = 'COPIADA'; })
+        .catch(function() { var r = document.createRange(); r.selectNodeContents(m.querySelector('.temp')); var s = getSelection(); s.removeAllRanges(); s.addRange(r); });
+    } });
+    var m = el('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'tT' }, [
+      el('div', { class: 'modal-c' }, [
+        el('h3', { id: 'tT', text: 'Contraseña temporal' }),
+        el('p', { text: 'Dásela a ' + email + '. Con ella entra y luego la cambia con el botón "Clave". No se vuelve a mostrar.' }),
+        el('div', { class: 'temp', text: clave }),
+        el('div', { class: 'modal-r' }, [copiar, el('button', { class: 'btn', type: 'button', text: 'LISTO', onclick: cerrar })])
+      ])
+    ]);
+    document.body.appendChild(m);
+    copiar.focus();
+  }
+
   function cambiar(u, body, msg) {
     return api('PATCH', '/api/admin/usuarios/' + u.id, body).then(function() { toast(msg); cargar(); })
       .catch(function(e) { toast(e.message, true); });
@@ -267,6 +289,14 @@ h2{font:900 13px var(--f-num);letter-spacing:.16em;color:var(--muted);margin-bot
         dar ? u.email + ' podrá ver este panel, aprobar, bloquear y eliminar cuentas.' : u.email + ' dejará de ver este panel.', dar ? 'HACER ADMIN' : 'QUITAR')
         .then(function(r) { if (r) cambiar(u, { rol: dar ? 'admin' : 'usuario' }, dar ? u.email + ' ahora es administrador' : u.email + ' ya no es administrador'); });
     } }));
+    if (!u.yo) acts.push(el('button', { class: 'btn', type: 'button', text: 'RESTABLECER CLAVE', onclick: function() {
+      confirmar('¿Restablecer la contraseña?', 'Se crea una contraseña temporal para ' + u.email + ' y se cierran sus sesiones abiertas en la app y la página.', 'RESTABLECER')
+        .then(function(r) {
+          if (!r) return;
+          api('POST', '/api/admin/usuarios/' + u.id + '/clave').then(function(d) { mostrarClave(d.email, d.clave); cargar(); })
+            .catch(function(e) { toast(e.message, true); });
+        });
+    } }));
     if (!u.yo) acts.push(el('button', { class: 'btn danger', type: 'button', text: 'ELIMINAR', onclick: function() {
       confirmar('¿Eliminar esta cuenta?', 'Se borra la cuenta de ' + u.email + ' y no se puede deshacer. Podrá volver a registrarse con ese correo.', 'ELIMINAR',
         'Borrar también sus ' + u.carreras + ' carreras')
@@ -309,7 +339,7 @@ h2{font:900 13px var(--f-num);letter-spacing:.16em;color:var(--muted);margin-bot
     us.forEach(function(u) { box.appendChild(fila(u)); });
   }
 
-  var NOMBRES = { registro: 'Registro', sesion: 'Inicio de sesión', aprobada: 'Cuenta aprobada', bloqueada: 'Cuenta bloqueada', cambio: 'Cambio', eliminada: 'Cuenta eliminada' };
+  var NOMBRES = { registro: 'Registro', sesion: 'Inicio de sesión', aprobada: 'Cuenta aprobada', bloqueada: 'Cuenta bloqueada', cambio: 'Cambio', eliminada: 'Cuenta eliminada', clave: 'Contraseña' };
   function log() {
     var box = $('log'); box.textContent = '';
     if (!datos.actividad.length) { box.appendChild(el('li', {}, [el('span', { class: 'd', text: 'Sin actividad todavía.' })])); return; }

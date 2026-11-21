@@ -496,6 +496,7 @@ td .num{font-size:14px;font-weight:700}
 .wait-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .wait-row button{padding:11px;border-radius:10px;border:1px solid var(--line2);font:700 11px var(--f-num);letter-spacing:.1em;color:var(--muted)}
 .wait-row button:first-child{color:var(--text);border-color:var(--red)}
+.auth .auth-ok{min-height:20px;margin:12px 0 4px;color:var(--green);font:600 14px var(--f-txt)}
 </style>
 </head>
 
@@ -521,6 +522,25 @@ td .num{font-size:14px;font-weight:700}
     <div class="auth-err" id="authErr" role="alert"></div>
     <button class="btn-go" id="authBtn" type="submit">ENTRAR</button>
     <p class="auth-note">Usa la misma cuenta en la app (Ajustes › Cuenta)</p>
+  </form>
+</div>
+
+<!-- ══ CAMBIAR CONTRASEÑA ══ -->
+<div class="auth" id="pwd" role="dialog" aria-modal="true" aria-labelledby="pwdTitle">
+  <form class="auth-card" id="pwdForm" novalidate>
+    <h2 class="wait-t" id="pwdTitle">CAMBIAR CONTRASEÑA</h2>
+    <p class="wait-msg">Las sesiones abiertas en otros equipos se cerrarán.</p>
+    <label for="pwdNow">Contraseña actual</label>
+    <input id="pwdNow" type="password" autocomplete="current-password" required>
+    <label for="pwdNew">Contraseña nueva</label>
+    <input id="pwdNew" type="password" autocomplete="new-password" required minlength="6">
+    <label for="pwdRep">Repite la nueva</label>
+    <input id="pwdRep" type="password" autocomplete="new-password" required minlength="6">
+    <div class="auth-err" id="pwdErr" role="alert"></div>
+    <div class="wait-row">
+      <button type="submit" id="pwdBtn">GUARDAR</button>
+      <button type="button" id="pwdCancel">CANCELAR</button>
+    </div>
   </form>
 </div>
 
@@ -558,6 +578,7 @@ td .num{font-size:14px;font-weight:700}
     <div class="pill pill-user" ng-show="usuario" title="Cuenta con la que entraste">
       <span class="who">{{ usuario.name || usuario.email }}</span>
       <a href="/admin" ng-if="usuario.rol==='admin'" title="Panel de administración">Admin</a>
+      <button type="button" onclick="Clave.abrir()" title="Cambiar contraseña">Clave</button>
       <button type="button" ng-click="salir()">Salir</button>
     </div>
   </div>
@@ -1203,6 +1224,41 @@ var LiveMap = (function() {
       setTimeout(function() { map.invalidateSize(); }, 60);
     }
   };
+})();
+
+/* ══ Cambiar la propia contraseña (diálogo fuera de Angular) ══ */
+var Clave = (function() {
+  var $ = function(id) { return document.getElementById(id); };
+  function cerrar() { $('pwd').classList.remove('show'); $('pwdForm').reset(); $('pwdErr').textContent = ''; }
+  function abrir() {
+    $('pwd').classList.add('show');
+    setTimeout(function() { $('pwdNow').focus(); }, 50);
+    $('pwdCancel').onclick = cerrar;
+    $('pwd').onkeydown = function(e) { if (e.key === 'Escape') cerrar(); };
+    $('pwdForm').onsubmit = function(e) {
+      e.preventDefault();
+      var actual = $('pwdNow').value, nueva = $('pwdNew').value;
+      $('pwdErr').className = 'auth-err';
+      if (nueva.length < 6) { $('pwdErr').textContent = 'La contraseña nueva debe tener al menos 6 caracteres'; return; }
+      if (nueva !== $('pwdRep').value) { $('pwdErr').textContent = 'Las dos contraseñas nuevas no coinciden'; return; }
+      $('pwdBtn').disabled = true; $('pwdErr').textContent = '';
+      fetch('/api/auth/clave', { method: 'POST', headers: Auth.headers({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ actual: actual, nueva: nueva }) })
+        .then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) {
+          if (r.status === 401 && d.code) { Auth.logout(); return; }
+          if (!r.ok || !d.token) throw new Error(d.message || 'No se pudo cambiar');
+          Auth.save(d.token, d.user);
+          $('pwdErr').className = 'auth-ok'; $('pwdErr').textContent = 'Contraseña cambiada';
+          setTimeout(function() { location.reload(); }, 900);   // reconecta el tiempo real con la sesión nueva
+        }); })
+        .catch(function(err) {
+          $('pwdErr').className = 'auth-err';
+          $('pwdErr').textContent = err.message === 'Failed to fetch' ? 'Sin conexión con el servidor' : err.message;
+          $('pwdBtn').disabled = false;
+        });
+    };
+  }
+  return { abrir: abrir };
 })();
 
 /* ══ Sesión: el token se guarda en este navegador y va en cada petición ══ */

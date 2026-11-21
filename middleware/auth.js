@@ -3,14 +3,20 @@ const jwt    = require('jsonwebtoken');
 const cuentas = require('../lib/cuentas');
 
 // ── Clave para firmar las sesiones ─────────────────────────────────
-// Lo correcto es definir JWT_SECRET en Railway → Variables. Si falta, se
-// deriva de MONGO_URI para que las sesiones sigan valiendo tras reiniciar.
+// Lo correcto es definir JWT_SECRET en Railway → Variables (32+ caracteres al
+// azar). Si falta, es corta o es una de las de ejemplo publicadas en el
+// repositorio, se deriva de MONGO_URI (que es secreta) para no quedar expuestos.
+const CLAVES_DE_EJEMPLO = [
+    'dragmoto_clave_secreta_2025',
+    'cambia-esto-por-una-clave-larga-al-azar'
+];
 function resolverClave() {
-    if (process.env.JWT_SECRET && process.env.JWT_SECRET.length >= 16) {
-        return process.env.JWT_SECRET;
-    }
+    const env = process.env.JWT_SECRET || '';
+    const deEjemplo = CLAVES_DE_EJEMPLO.includes(env);
+    if (env.length >= 16 && !deEjemplo) return env;
+    if (deEjemplo) console.warn('⚠️  JWT_SECRET es la clave de ejemplo del repositorio: se ignora. Pon una clave larga al azar en Railway → Variables.');
     if (process.env.MONGO_URI) {
-        console.warn('⚠️  Falta JWT_SECRET (mínimo 16 caracteres): se usa una clave derivada de MONGO_URI. Configúrala en Railway → Variables.');
+        if (!deEjemplo) console.warn('⚠️  Falta JWT_SECRET (mínimo 16 caracteres): se usa una clave derivada de MONGO_URI. Configúrala en Railway → Variables.');
         return crypto.createHash('sha256').update('dragmoto-jwt|' + process.env.MONGO_URI).digest('hex');
     }
     console.warn('⚠️  Sin JWT_SECRET ni MONGO_URI: las sesiones se pierden al reiniciar el servidor.');
@@ -24,12 +30,12 @@ function firmarToken(user) {
     return jwt.sign({ sub: user._id.toString(), email: user.email }, SECRET, { expiresIn: EXPIRACION });
 }
 
-/** Devuelve { id, email } si el token es válido; null si no. */
+/** Devuelve { id, email, iat } si el token es válido; null si no. */
 function verificarToken(token) {
     if (!token || typeof token !== 'string') return null;
     try {
         const p = jwt.verify(token, SECRET);
-        return p && p.sub ? { id: p.sub, email: p.email } : null;
+        return p && p.sub ? { id: p.sub, email: p.email, iat: p.iat || 0 } : null;
     } catch (_) {
         return null;
     }
@@ -45,10 +51,21 @@ function clienteDe(valor) {
     return String(valor || '').toLowerCase() === 'app' ? 'app' : 'web';
 }
 
-/** Solo valida la sesión (sin mirar si la cuenta está aprobada). Para /api/auth/me. */
-function requireSesion(req, res, next) {
+/**
+ * Valida la sesión sin mirar si la cuenta está aprobada (para /api/auth/me y
+ * cambiar la contraseña). Sí rechaza cuentas borradas y sesiones anteriores
+ * a un cambio de contraseña.
+ */
+async function requireSesion(req, res, next) {
     const user = verificarToken(tokenDe(req));
     if (!user) return res.status(401).json({ message: 'Inicia sesión para continuar' });
+    try {
+        const cuenta = await cuentas.estadoDe(user.id);
+        if (cuenta === null) return res.status(401).json({ code: 'sin_cuenta', message: 'La cuenta ya no existe' });
+        if (cuenta && cuentas.sesionVieja(cuenta, user.iat)) {
+            return res.status(401).json({ code: 'sesion_vieja', message: 'La contraseña cambió: vuelve a iniciar sesión' });
+        }
+    } catch (_) { /* sin base de datos: se deja pasar */ }
     req.user = user;
     next();
 }
@@ -64,7 +81,7 @@ async function requireAuth(req, res, next) {
     try {
         const cuenta = await cuentas.estadoDe(user.id);
         if (cuenta !== undefined) {   // undefined = base de datos caída: no se bloquea a nadie
-            const no = cuentas.motivoBloqueo(cuenta, cliente);
+            const no = cuentas.motivoBloqueo(cuenta, cliente, user.iat);
             if (no) return res.status(no.status).json({ code: no.code, message: no.message });
             Object.assign(user, cuenta);
             cuentas.registrarUso(user.id, cliente);
