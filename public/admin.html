@@ -91,6 +91,14 @@ h2{font:900 13px var(--f-num);letter-spacing:.16em;color:var(--muted);margin-bot
 .modal-c label{display:flex;gap:8px;align-items:center;margin-top:14px;font:600 15px var(--f-txt)}
 .modal-r{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
 .temp{margin-top:14px;padding:14px;border-radius:10px;border:1px dashed var(--yellow);text-align:center;font:700 24px var(--f-mono);letter-spacing:.08em;color:var(--yellow);user-select:all}
+.ver{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;padding:16px;border-radius:var(--r);border:1px solid var(--line);background:var(--s1)}
+.ver label{display:flex;flex-direction:column;gap:6px;font:700 11px var(--f-txt);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.ver input,.ver textarea{padding:10px 12px;border-radius:10px;border:1px solid var(--line2);background:var(--bg);color:var(--text);font:600 15px var(--f-txt);text-transform:none;letter-spacing:0}
+.ver textarea{min-height:64px;resize:vertical}
+.ver .full{grid-column:1/-1}
+.ver .chk{flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font:600 15px var(--f-txt);color:var(--text)}
+.ver .row{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.ver .now{color:var(--muted);font:500 14px var(--f-txt)}
 .gate{max-width:440px;margin:12vh auto;padding:24px;text-align:center;border:1px solid var(--line);border-radius:var(--r);background:var(--s1)}
 .gate p{color:var(--muted);margin:10px 0 16px;font:500 16px var(--f-txt)}
 @media (max-width:900px){
@@ -131,6 +139,21 @@ h2{font:900 13px var(--f-num);letter-spacing:.16em;color:var(--muted);margin-bot
       </select>
     </div>
     <div class="users" id="users"></div>
+  </section>
+
+  <section aria-labelledby="hVer">
+    <h2 id="hVer">VERSIÓN DE LA APP</h2>
+    <form class="ver" id="verForm" novalidate>
+      <label>Número (versionCode)<input id="verCode" type="number" min="1" step="1" placeholder="2" required></label>
+      <label>Nombre<input id="verNombre" maxlength="20" placeholder="1.1" required></label>
+      <label class="full">Enlace de descarga del APK<input id="verEnlace" type="url" placeholder="https://drive.google.com/..." required></label>
+      <label class="full">Qué trae (lo ve el usuario)<textarea id="verNotas" maxlength="500" placeholder="Tableros nuevos, cambiar contraseña…"></textarea></label>
+      <label class="chk full"><input id="verObl" type="checkbox"> Obligatoria: avisar cada vez que abran la app hasta que actualicen</label>
+      <div class="row">
+        <button class="btn go" type="submit">PUBLICAR VERSIÓN</button>
+        <span class="now" id="verNow">Sin versión publicada: la app no muestra avisos.</span>
+      </div>
+    </form>
   </section>
 
   <section aria-labelledby="hAct">
@@ -339,7 +362,7 @@ h2{font:900 13px var(--f-num);letter-spacing:.16em;color:var(--muted);margin-bot
     us.forEach(function(u) { box.appendChild(fila(u)); });
   }
 
-  var NOMBRES = { registro: 'Registro', sesion: 'Inicio de sesión', aprobada: 'Cuenta aprobada', bloqueada: 'Cuenta bloqueada', cambio: 'Cambio', eliminada: 'Cuenta eliminada', clave: 'Contraseña' };
+  var NOMBRES = { registro: 'Registro', sesion: 'Inicio de sesión', aprobada: 'Cuenta aprobada', bloqueada: 'Cuenta bloqueada', cambio: 'Cambio', eliminada: 'Cuenta eliminada', clave: 'Contraseña', version: 'Versión de la app' };
   function log() {
     var box = $('log'); box.textContent = '';
     if (!datos.actividad.length) { box.appendChild(el('li', {}, [el('span', { class: 'd', text: 'Sin actividad todavía.' })])); return; }
@@ -358,6 +381,27 @@ h2{font:900 13px var(--f-num);letter-spacing:.16em;color:var(--muted);margin-bot
       .catch(function(e) { if (e.message !== 'sesión') toast(e.message, true); });
   }
 
+  /* versión de la app: la app avisa a quien tenga una más vieja */
+  function versionActual(v) {
+    $('verNow').textContent = v && v.code
+      ? 'Publicada: ' + v.nombre + ' (' + v.code + ')' + (v.obligatoria ? ', obligatoria' : '') + (v.actualizada ? ' · ' + hace(v.actualizada) : '')
+      : 'Sin versión publicada: la app no muestra avisos.';
+  }
+  function cargarVersion() {
+    api('GET', '/api/admin/app-version').then(function(v) {
+      if (v.code) { $('verCode').value = v.code; $('verNombre').value = v.nombre; $('verEnlace').value = v.enlace; $('verNotas').value = v.notas; $('verObl').checked = !!v.obligatoria; }
+      versionActual(v);
+    }).catch(function() {});
+  }
+  $('verForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    api('PUT', '/api/admin/app-version', {
+      code: parseInt($('verCode').value, 10), nombre: $('verNombre').value, enlace: $('verEnlace').value,
+      notas: $('verNotas').value, obligatoria: $('verObl').checked
+    }).then(function(v) { versionActual(v); toast('Versión ' + v.nombre + ' publicada'); cargar(); })
+      .catch(function(err) { toast(err.message, true); });
+  });
+
   function puerta(msg) { $('gateMsg').textContent = msg; $('gate').hidden = false; }
 
   if (!token) { location.href = '/'; return; }
@@ -367,6 +411,7 @@ h2{font:900 13px var(--f-num);letter-spacing:.16em;color:var(--muted);margin-bot
     $('q').addEventListener('input', lista);
     $('fEstado').addEventListener('change', lista);
     cargar();
+    cargarVersion();
     setInterval(function() { if (!document.hidden && !document.querySelector('.modal')) cargar(); }, 15000);
   }).catch(function(e) { if (e.message !== 'sesión') puerta('No se pudo conectar con el servidor. ' + e.message); });
 })();

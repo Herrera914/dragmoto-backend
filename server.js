@@ -58,7 +58,7 @@ setInterval(() => {
 connectDB();
 
 // ── Middleware ─────────────────────────────────────────────────────
-app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PATCH', 'DELETE'] }));
+app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] }));
 // El trazado de una carrera (gráficas de la página) puede pesar unos cientos de KB
 app.use(express.json({ limit: '3mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -84,6 +84,8 @@ app.set('enVivo', () => {
 app.use('/api/auth', authRoutes);
 app.use('/api/runs', runRoutes);   // exige sesión (ver routes/runs.js)
 app.use('/api/admin', adminRoutes); // solo administradores
+// Última versión de la app (pública: la app avisa si hay una más nueva)
+app.get('/api/app/version', require('./controllers/appVersionController').obtener);
 
 app.get('/api/health', (req, res) => {
     res.json({
