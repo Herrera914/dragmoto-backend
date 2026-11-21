@@ -171,7 +171,7 @@ io.use(async (socket, next) => {
     try {
         const cuenta = await cuentas.estadoDe(user.id);
         if (cuenta !== undefined) {
-            const no = cuentas.motivoBloqueo(cuenta, clienteDe(auth.client));
+            const no = cuentas.motivoBloqueo(cuenta, clienteDe(auth.client), user.iat);
             if (no) {
                 const err = new Error(no.status === 401 ? 'auth' : 'acceso');
                 err.data = { code: no.code, message: no.message };
