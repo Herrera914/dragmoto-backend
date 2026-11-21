@@ -88,7 +88,11 @@ const uploadRun = async (req, res) => {
 // POST /api/runs/live — recibe puntos GPS en tiempo real durante el run
 const livePoint = (req, res) => {
     try {
-        const { speed_kmh, acceleration, distance, timestamp, session_id } = req.body;
+        const { speed_kmh, acceleration, distance, timestamp, session_id, lat, lon } = req.body;
+        // Posición para el mapa en vivo: solo si es una coordenada real
+        const coord = (v, max) => (typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= max ? v : null);
+        const la = coord(lat, 90), lo = coord(lon, 180);
+        const conPosicion = la !== null && lo !== null && !(la === 0 && lo === 0);
 
         // Reemite el punto al instante, solo a las páginas de este usuario
         const io = req.app.get('io');
@@ -98,7 +102,9 @@ const livePoint = (req, res) => {
                 acceleration:acceleration || 0,
                 distance:    distance    || 0,
                 timestamp:   timestamp   || Date.now(),
-                session_id:  session_id  || 'unknown'
+                session_id:  session_id  || 'unknown',
+                lat:         conPosicion ? la : null,
+                lon:         conPosicion ? lo : null
             });
         }
 

@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const jwt    = require('jsonwebtoken');
+const cuentas = require('../lib/cuentas');
 
 // ── Clave para firmar las sesiones ─────────────────────────────────
 // Lo correcto es definir JWT_SECRET en Railway → Variables. Si falta, se
@@ -39,12 +40,47 @@ function tokenDe(req) {
     return h.startsWith('Bearer ') ? h.slice(7).trim() : null;
 }
 
-/** Middleware: exige sesión y deja el usuario en req.user. */
-function requireAuth(req, res, next) {
+/** 'app' si la petición viene de la app Android (encabezado X-DragMoto-Client), si no 'web'. */
+function clienteDe(valor) {
+    return String(valor || '').toLowerCase() === 'app' ? 'app' : 'web';
+}
+
+/** Solo valida la sesión (sin mirar si la cuenta está aprobada). Para /api/auth/me. */
+function requireSesion(req, res, next) {
     const user = verificarToken(tokenDe(req));
     if (!user) return res.status(401).json({ message: 'Inicia sesión para continuar' });
     req.user = user;
     next();
 }
 
-module.exports = { firmarToken, verificarToken, requireAuth };
+/**
+ * Exige sesión y una cuenta activa con permiso para este cliente (página o app).
+ * Deja en req.user { id, email, rol, estado, permisos } y en req.cliente 'web' | 'app'.
+ */
+async function requireAuth(req, res, next) {
+    const user = verificarToken(tokenDe(req));
+    if (!user) return res.status(401).json({ message: 'Inicia sesión para continuar' });
+    const cliente = clienteDe(req.headers['x-dragmoto-client']);
+    try {
+        const cuenta = await cuentas.estadoDe(user.id);
+        if (cuenta !== undefined) {   // undefined = base de datos caída: no se bloquea a nadie
+            const no = cuentas.motivoBloqueo(cuenta, cliente);
+            if (no) return res.status(no.status).json({ code: no.code, message: no.message });
+            Object.assign(user, cuenta);
+            cuentas.registrarUso(user.id, cliente);
+        }
+    } catch (e) {
+        console.error('❌ Revisando la cuenta:', e.message);
+    }
+    req.user = user;
+    req.cliente = cliente;
+    next();
+}
+
+/** Solo administradores (va después de requireAuth). */
+function requireAdmin(req, res, next) {
+    if (req.user && req.user.rol === 'admin') return next();
+    res.status(403).json({ code: 'no_admin', message: 'Solo el administrador puede hacer esto' });
+}
+
+module.exports = { firmarToken, verificarToken, requireAuth, requireSesion, requireAdmin, clienteDe };

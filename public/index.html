@@ -130,7 +130,8 @@ main{position:relative;flex:1;display:flex;flex-direction:column;width:100%;max-
   .chart-card{flex:1;display:flex;flex-direction:column;min-height:0}
   .chart-card .chart-wrap,.chart-card .chart-wrap.tele-wrap{flex:1;height:auto;min-height:calc(var(--lanes,4) * 56px + 24px)}
   .chart-card .chart-wrap canvas{position:absolute;inset:0}
-  .a-slip > .card{flex:1;display:flex;flex-direction:column;min-height:0}
+  .a-slip > .slip-card{flex:1;display:flex;flex-direction:column;min-height:0}
+  .live-map{height:clamp(200px,30vh,320px)}
   .a-slip .slip{margin:auto;width:100%}
 }
 
@@ -370,7 +371,14 @@ td .num{font-size:14px;font-weight:700}
 @media (min-width:900px){.run-tele.con-mapa{grid-template-columns:minmax(260px,34%) minmax(0,1fr)}}
 .run-map{min-height:260px;border-radius:12px;border:1px solid var(--line);overflow:hidden;background:var(--bg)}
 @media (min-width:900px){.run-map{min-height:100%}}
-.run-tele .leaflet-container{background:#0c0e14;font:500 12px var(--f-txt)}
+.run-tele .leaflet-container,.live-map .leaflet-container{background:#0c0e14;font:500 12px var(--f-txt)}
+/* ── mapa en vivo (pestaña En vivo) ── */
+.live-map{position:relative;height:240px;border-radius:12px;border:1px solid var(--line);overflow:hidden;background:#0c0e14}
+.live-map-el{position:absolute;inset:0}
+.live-map-empty{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px;text-align:center;color:var(--muted);font:500 14px var(--f-txt);background:#0c0e14}
+.live-map-empty b{color:var(--text);font:700 11px var(--f-num);letter-spacing:.12em}
+.map-center{position:absolute;right:10px;bottom:10px;z-index:500;padding:7px 11px;border-radius:9px;border:1px solid var(--line2);background:rgba(12,14,20,.92);font:700 10px var(--f-num);letter-spacing:.1em;color:var(--text)}
+.map-center:hover{border-color:var(--blue)}
 .run-note{color:var(--muted);font:500 14px var(--f-txt);text-align:center;padding:10px 0}
 .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.5)}
 
@@ -477,6 +485,17 @@ td .num{font-size:14px;font-weight:700}
 .pill-user button{padding:3px 9px;border-radius:999px;border:1px solid var(--line2);font:600 12px var(--f-txt);color:var(--muted)}
 .pill-user button:hover{color:var(--text);border-color:var(--red)}
 @media (max-width:760px){.pill-user .who{max-width:90px}}
+.pill-user a{padding:3px 9px;border-radius:999px;border:1px solid rgba(255,225,77,.45);font:600 12px var(--f-txt);color:var(--yellow);text-decoration:none}
+.pill-user a:hover{border-color:var(--yellow)}
+/* cuenta en espera, bloqueada o sin permiso para la página */
+.wait-ico{width:56px;height:56px;margin:4px auto 14px;display:grid;place-items:center;border-radius:50%;border:2px solid var(--amber);color:var(--amber);font:900 22px var(--f-num)}
+.wait-ico.bad{border-color:var(--red);color:var(--red)}
+.auth h2.wait-t{text-align:center;font:900 16px var(--f-num);letter-spacing:.08em;margin:0 0 10px}
+.wait-msg{text-align:center;color:var(--muted);font:500 16px/1.45 var(--f-txt);margin:0 0 18px}
+.wait-who{text-align:center;color:var(--dim);font:500 14px var(--f-txt);margin:0 0 16px;overflow-wrap:anywhere}
+.wait-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.wait-row button{padding:11px;border-radius:10px;border:1px solid var(--line2);font:700 11px var(--f-num);letter-spacing:.1em;color:var(--muted)}
+.wait-row button:first-child{color:var(--text);border-color:var(--red)}
 </style>
 </head>
 
@@ -505,6 +524,20 @@ td .num{font-size:14px;font-weight:700}
   </form>
 </div>
 
+<!-- ══ CUENTA SIN ACCESO (pendiente, bloqueada o sin permiso para la página) ══ -->
+<div class="auth" id="authWait" role="dialog" aria-labelledby="waitTitle">
+  <div class="auth-card">
+    <div class="wait-ico" id="waitIco" aria-hidden="true">…</div>
+    <h2 class="wait-t" id="waitTitle">CUENTA EN ESPERA</h2>
+    <p class="wait-msg" id="waitMsg">El administrador debe aprobar tu cuenta antes de que puedas usar DragMoto.</p>
+    <p class="wait-who" id="waitWho"></p>
+    <div class="wait-row">
+      <button type="button" id="waitRetry">VOLVER A REVISAR</button>
+      <button type="button" id="waitOut">SALIR</button>
+    </div>
+  </div>
+</div>
+
 <header class="topbar"><div class="topbar-in">
   <div class="brand">
     <div class="brand-mark" aria-hidden="true">DM</div>
@@ -524,6 +557,7 @@ td .num{font-size:14px;font-weight:700}
     </div>
     <div class="pill pill-user" ng-show="usuario" title="Cuenta con la que entraste">
       <span class="who">{{ usuario.name || usuario.email }}</span>
+      <a href="/admin" ng-if="usuario.rol==='admin'" title="Panel de administración">Admin</a>
       <button type="button" ng-click="salir()">Salir</button>
     </div>
   </div>
@@ -646,7 +680,15 @@ td .num{font-size:14px;font-weight:700}
 
   <!-- Timeslip -->
   <div class="col a-slip" style="--i:2">
-    <div class="card" style="--edge:rgba(255,59,92,.45)">
+    <div class="card" style="--edge:rgba(25,230,140,.4)">
+      <div class="card-h"><span class="label">Mapa en vivo</span><span class="unit" id="liveMapHint">esperando GPS</span></div>
+      <div class="live-map">
+        <div class="live-map-el" id="liveMap" role="img" aria-label="Mapa con la posición de la moto en vivo"></div>
+        <div class="live-map-empty" id="liveMapEmpty"><b>SIN POSICIÓN</b>El mapa sigue la moto en cuanto la app empiece a medir</div>
+        <button type="button" class="map-center" id="liveMapCenter" hidden>CENTRAR</button>
+      </div>
+    </div>
+    <div class="card slip-card" style="--edge:rgba(255,59,92,.45)">
       <div class="card-h"><span class="label">Timeslip</span><span class="unit" ng-cloak>{{ ultimoRun ? 'último run' : 'esperando' }}</span></div>
       <div class="slip" id="slip" ng-cloak>
         <div class="slip-slot" aria-hidden="true"></div>
@@ -1098,6 +1140,71 @@ var Tele = (function(){
   };
 })();
 
+/* ══ Mapa en vivo: sigue la moto y dibuja el recorrido de la carrera actual ══ */
+var LiveMap = (function() {
+  var map = null, line = null, start = null, finish = null, bike = null, follow = true, pts = [], lastAt = 0;
+  var lastV = 0, finished = false;
+  var $ = function(id) { return document.getElementById(id); };
+  function hint(t) { var h = $('liveMapHint'); if (h) h.textContent = t; }
+  function ensure() {
+    if (map) return true;
+    var el = $('liveMap');
+    if (typeof L === 'undefined' || !el || !el.offsetWidth) return false;   // pestaña oculta: se crea al volver
+    map = L.map(el, { zoomControl: true, attributionControl: true });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+    line = L.polyline([], { color: '#ff3b5c', weight: 4, opacity: .95 }).addTo(map);
+    bike = L.circleMarker([0, 0], { radius: 8, color: '#fff', weight: 2, fillColor: '#ff7a1a', fillOpacity: 1 });
+    // si el usuario mueve el mapa, deja de seguir la moto hasta que toque Centrar
+    map.on('dragstart', function() { follow = false; $('liveMapCenter').hidden = !pts.length; });
+    $('liveMapCenter').onclick = function() { follow = true; this.hidden = true; if (pts.length) map.setView(pts[pts.length - 1], Math.max(map.getZoom(), 16)); };
+    map.setView([4.65, -74.08], 5);
+    return true;
+  }
+  return {
+    /* v: velocidad del punto (con o sin posición), para saber cuándo arranca otra carrera */
+    speed: function(v) {
+      // nueva salida (pasa de quieto a >5 km/h) después de una carrera terminada o de un rato sin datos
+      if (v > 5 && lastV <= 5 && (finished || (lastAt && Date.now() - lastAt > 30000))) LiveMap.reset();
+      lastV = v;
+    },
+    point: function(lat, lon) {
+      if (!(isFinite(lat) && isFinite(lon)) || Math.abs(lat) > 90 || Math.abs(lon) > 180 || (lat === 0 && lon === 0)) return;
+      if (!ensure()) { pts.push([lat, lon]); return; }
+      var p = [lat, lon];
+      pts.push(p); line.addLatLng(p); lastAt = Date.now();
+      if (!start) start = L.circleMarker(p, { radius: 6, color: '#19e68c', fillColor: '#19e68c', fillOpacity: 1, weight: 2 }).bindTooltip('Salida').addTo(map);
+      bike.setLatLng(p); if (!map.hasLayer(bike)) bike.addTo(map);
+      $('liveMapEmpty').hidden = true;
+      if (follow) map.setView(p, pts.length === 1 ? 17 : map.getZoom(), { animate: pts.length > 1 });
+      hint(finished ? 'recorrido completo' : follow ? 'siguiendo la moto' : 'mapa movido');
+    },
+    /* nueva carrera: borra el recorrido anterior */
+    reset: function() {
+      pts = []; follow = true; finished = false;
+      if (map) {
+        line.setLatLngs([]);
+        if (start) { start.remove(); start = null; }
+        if (finish) { finish.remove(); finish = null; }
+      }
+      var c = $('liveMapCenter'); if (c) c.hidden = true;
+    },
+    /* carrera terminada: encuadra todo el recorrido */
+    done: function() {
+      finished = true;
+      if (!map || pts.length < 2) return;
+      follow = false; map.fitBounds(line.getBounds(), { padding: [24, 24] });
+      if (finish) finish.remove();
+      finish = L.circleMarker(pts[pts.length - 1], { radius: 6, color: '#ff3b5c', fillColor: '#ff3b5c', fillOpacity: 1, weight: 2 }).bindTooltip('Final').addTo(map);
+      $('liveMapCenter').hidden = false; hint('recorrido completo');
+    },
+    /* la pestaña volvió a verse: Leaflet necesita recalcular el tamaño */
+    visible: function() {
+      if (!map) { if (pts.length && ensure()) { var q = pts; pts = []; q.forEach(function(p) { LiveMap.point(p[0], p[1]); }); } return; }
+      setTimeout(function() { map.invalidateSize(); }, 60);
+    }
+  };
+})();
+
 /* ══ Sesión: el token se guarda en este navegador y va en cada petición ══ */
 var Auth = (function() {
   var K_TOKEN = 'dm_token', K_USER = 'dm_user';
@@ -1107,7 +1214,7 @@ var Auth = (function() {
     token: get(K_TOKEN),
     user:  (function() { try { return JSON.parse(get(K_USER) || 'null'); } catch (_) { return null; } })(),
     save: function(token, user) { A.token = token; A.user = user; set(K_TOKEN, token); set(K_USER, JSON.stringify(user)); },
-    headers: function(extra) { var h = extra || {}; if (A.token) h.Authorization = 'Bearer ' + A.token; return h; },
+    headers: function(extra) { var h = extra || {}; if (A.token) h.Authorization = 'Bearer ' + A.token; h['X-DragMoto-Client'] = 'web'; return h; },
     /* sesión vencida o cerrada: se borra y se vuelve a la pantalla de entrada */
     logout: function() { set(K_TOKEN, null); set(K_USER, null); location.reload(); }
   };
@@ -1121,15 +1228,24 @@ var app = angular.module('telemetriaApp', []);
 app.factory('authInterceptor', function($q) {
   return {
     request: function(c) { c.headers = Auth.headers(c.headers); return c; },
-    responseError: function(r) { if (r.status === 401 && Auth.token) Auth.logout(); return $q.reject(r); }
+    responseError: function(r) {
+      if (r.status === 401 && Auth.token) Auth.logout();
+      // el administrador quitó el acceso mientras la página estaba abierta
+      else if (r.status === 403 && r.data && /^(pendiente|bloqueado|sin_permiso)$/.test(r.data.code)) location.reload();
+      return $q.reject(r);
+    }
   };
 });
 app.config(function($httpProvider) { $httpProvider.interceptors.push('authInterceptor'); });
 
 app.service('Sock', function($rootScope) {
-  var s = io({ auth: { token: Auth.token } });
+  var s = io({ auth: { token: Auth.token, client: 'web' } });
   // sesión inválida o vencida: el servidor rechaza el socket
-  s.on('connect_error', function(e) { if (e && e.message === 'auth' && Auth.token) Auth.logout(); });
+  s.on('connect_error', function(e) {
+    if (!e || !Auth.token) return;
+    if (e.message === 'auth') Auth.logout();
+    else if (e.message === 'acceso') location.reload();   // muestra el aviso de cuenta sin acceso
+  });
   this.on = function(ev, cb) {
     s.on(ev, function(d) { $rootScope.$apply(function() { cb(d); }); });
   };
@@ -1277,6 +1393,8 @@ app.controller('AppCtrl', function($scope, $timeout, Sock, Tiempos) {
   function onLivePoint(d) {
     $timeout.cancel(faseTimer);
     if ($scope.fase !== 'live') { $scope.fase = 'live'; Live.tree('go'); }
+    LiveMap.speed(parseFloat(d.speed_kmh) || 0);
+    if (d.lat != null && d.lon != null) LiveMap.point(parseFloat(d.lat), parseFloat(d.lon));
     var f = {
       v: parseFloat(d.speed_kmh)    || 0,
       a: parseFloat(d.acceleration) || 0,
@@ -1294,6 +1412,7 @@ app.controller('AppCtrl', function($scope, $timeout, Sock, Tiempos) {
     syncTree();
     Live.onRunCompleted(r);   // cronómetro final, toast e impresión del timeslip
     Tele.done();              // la gráfica queda con la carrera completa
+    LiveMap.done();           // el mapa encuadra el recorrido completo
 
     // el timeslip se queda; el velocímetro y la pista vuelven a cero
     $timeout.cancel(faseTimer);
@@ -1329,6 +1448,7 @@ app.controller('AppCtrl', function($scope, $timeout, Sock, Tiempos) {
 
   Sock.on('live_point', onLivePoint);
   Sock.on('run_completed', onRunCompleted);
+  $scope.$watch('tab', function(t) { if (t === 'live') LiveMap.visible(); });
 
   /* ── modo demo (?demo): simula un run en este navegador, sin moto ni servidor ── */
   $scope.simular = function() {
@@ -1357,7 +1477,7 @@ app.controller('AppCtrl', function($scope, $timeout, Sock, Tiempos) {
             Object.keys(marcas).forEach(function(k){ if (!res[k] && v >= marcas[k]) res[k] = +t.toFixed(2); });
             Object.keys(dists).forEach(function(k){ if (!res[k] && x >= dists[k]) res[k] = +t.toFixed(2); });
           }
-          onLivePoint({ speed_kmh: v, acceleration: (v - prevV) / 3.6, distance: x });
+          onLivePoint({ speed_kmh: v, acceleration: (v - prevV) / 3.6, distance: x, lat: 4.6512 + x / 111320, lon: -74.0556 + x * 0.12 / 111320 });
           if (x >= 402) {
             clearInterval(iv);
             res.top_speed = +v.toFixed(1); res.trap_speed_quarter = +v.toFixed(1); res.total_distance = x;
@@ -1619,7 +1739,7 @@ app.controller('HistCtrl', function($scope, $timeout, $document, Api, Sock, Tiem
     if (pass.length < 6) { $('authErr').textContent = 'La contraseña debe tener al menos 6 caracteres'; return; }
     $('authBtn').disabled = true; $('authErr').textContent = '';
     fetch('/api/auth/' + modo, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-DragMoto-Client': 'web' },
       body: JSON.stringify({ email: email, password: pass, name: $('authName').value.trim() })
     }).then(function(r) {
       return r.json().catch(function() { return {}; }).then(function(d) {
@@ -1634,12 +1754,31 @@ app.controller('HistCtrl', function($scope, $timeout, $document, Api, Sock, Tiem
   };
   function pedirEntrada() { $('auth').classList.add('show'); setTimeout(function() { $('authEmail').focus(); }, 50); }
   function arrancar() { angular.bootstrap(document, ['telemetriaApp']); }
+  // Cuenta que todavía no puede usar la página: aviso con su estado
+  function sinAcceso(u) {
+    var t = { pendiente: ['CUENTA EN ESPERA', 'El administrador debe aprobar tu cuenta antes de que puedas usar DragMoto. Vuelve a revisar en un rato.', '…', false],
+              bloqueado: ['CUENTA BLOQUEADA', 'Tu cuenta está bloqueada. Habla con el administrador de DragMoto.', '!', true],
+              sin_permiso: ['SIN PERMISO', 'Tu cuenta no tiene permiso para usar la página. Puedes seguir usando la app si la tienes permitida.', '!', true] };
+    var code = u.estado === 'pendiente' ? 'pendiente' : u.estado === 'bloqueado' ? 'bloqueado' : 'sin_permiso';
+    $('waitTitle').textContent = t[code][0];
+    $('waitMsg').textContent = t[code][1];
+    $('waitIco').textContent = t[code][2];
+    $('waitIco').classList.toggle('bad', t[code][3]);
+    $('waitWho').textContent = u.email || '';
+    $('waitRetry').onclick = function() { location.reload(); };
+    $('waitOut').onclick = function() { Auth.logout(); };
+    $('authWait').classList.add('show');
+  }
+  var puedeUsar = function(u) { return (u.estado || 'activo') === 'activo' && !(u.permisos && u.permisos.web === false); };
 
   // ?demo funciona sin cuenta (simula una carrera en este navegador)
   if (!Auth.token) { if (/[?&]demo\b/.test(location.search)) arrancar(); else pedirEntrada(); return; }
   apiFetch('/api/auth/me').then(function(r) {
     if (r.status === 401) { Auth.logout(); return; }
-    return r.json().then(function(u) { if (u && u.email) Auth.save(Auth.token, u); arrancar(); });
+    return r.json().then(function(u) {
+      if (u && u.email) Auth.save(Auth.token, u);
+      if (u && u.email && !puedeUsar(u)) sinAcceso(u); else arrancar();
+    });
   }).catch(arrancar);   // servidor caído: arranca igual y se reconecta solo
 })();
 </script>

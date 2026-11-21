@@ -9,7 +9,9 @@ const mongoose  = require('mongoose');
 const connectDB = require('./config/database');
 const runRoutes  = require('./routes/runs');
 const authRoutes = require('./routes/auth');
-const { requireAuth, verificarToken } = require('./middleware/auth');
+const adminRoutes = require('./routes/admin');
+const cuentas    = require('./lib/cuentas');
+const { requireAuth, verificarToken, clienteDe } = require('./middleware/auth');
 
 const app    = express();
 const server = http.createServer(app);
@@ -56,7 +58,7 @@ setInterval(() => {
 connectDB();
 
 // ── Middleware ─────────────────────────────────────────────────────
-app.use(cors({ origin: '*', methods: ['GET', 'POST', 'DELETE'] }));
+app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PATCH', 'DELETE'] }));
 // El trazado de una carrera (gráficas de la página) puede pesar unos cientos de KB
 app.use(express.json({ limit: '3mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -67,10 +69,21 @@ app.use((req, res, next) => {
 });
 
 app.set('io', io);
+// Para el panel de administración: quién tiene la página o la app abierta y qué motos están conectadas
+app.set('enVivo', () => {
+    const enLinea = new Set();
+    for (const [room, socks] of io.sockets.adapter.rooms) {
+        if (room.startsWith('u:') && socks.size) enLinea.add(room.slice(2));
+    }
+    const motosOn = new Set();
+    for (const [id, m] of motos) if (motoConectada(m)) motosOn.add(id);
+    return { enLinea, motosOn };
+});
 
 // ── Rutas API ──────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/runs', runRoutes);   // exige sesión (ver routes/runs.js)
+app.use('/api/admin', adminRoutes); // solo administradores
 
 app.get('/api/health', (req, res) => {
     res.json({
@@ -80,6 +93,7 @@ app.get('/api/health', (req, res) => {
         version      : (process.env.RAILWAY_GIT_COMMIT_SHA || 'local').slice(0, 7),
         cdi_api      : true,
         cuentas      : true,
+        admin        : true,
         timestamp    : new Date().toISOString(),
         db_conectada : mongoose.connection.readyState === 1
     });
@@ -137,6 +151,11 @@ app.get('/api/telemetry/status', requireAuth, (req, res) => {
 // Rutas /api desconocidas: 404 en JSON (no la página)
 app.use('/api', (req, res) => res.status(404).json({ message: 'Ruta no encontrada' }));
 
+// Panel de administración (la página revisa el rol; los datos los protege /api/admin)
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
 // Dashboard — cualquier ruta no-API sirve index.html
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -144,9 +163,22 @@ app.get('*', (req, res) => {
 
 // ── WebSockets ─────────────────────────────────────────────────────
 // Toda conexión debe traer la sesión: io({ auth: { token } })
-io.use((socket, next) => {
-    const user = verificarToken(socket.handshake.auth && socket.handshake.auth.token);
+// y una cuenta activa con permiso para ese cliente: io({ auth: { token, client: 'app' } })
+io.use(async (socket, next) => {
+    const auth = socket.handshake.auth || {};
+    const user = verificarToken(auth.token);
     if (!user) return next(new Error('auth'));
+    try {
+        const cuenta = await cuentas.estadoDe(user.id);
+        if (cuenta !== undefined) {
+            const no = cuentas.motivoBloqueo(cuenta, clienteDe(auth.client));
+            if (no) {
+                const err = new Error(no.status === 401 ? 'auth' : 'acceso');
+                err.data = { code: no.code, message: no.message };
+                return next(err);
+            }
+        }
+    } catch (_) { /* sin base de datos: se deja pasar */ }
     socket.data.user = user;
     next();
 });

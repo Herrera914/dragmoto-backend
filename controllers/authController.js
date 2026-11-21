@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const User     = require('../models/User');
 const Run      = require('../models/Run');
 const { firmarToken } = require('../middleware/auth');
+const cuentas  = require('../lib/cuentas');
 
 const EMAIL_RE   = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASS   = 6;
@@ -30,7 +31,11 @@ setInterval(() => {
 }, VENTANA_MS).unref();
 
 const dbLista = () => mongoose.connection.readyState === 1;
-const publico = (u) => ({ id: u._id.toString(), email: u.email, name: u.name || '' });
+// Lo que ve el cliente de su propia cuenta (incluye estado y permisos para mostrar avisos)
+const publico = (u) => {
+    const c = cuentas.normalizar(u);
+    return { id: c.id, email: c.email, name: u.name || '', rol: c.rol, estado: c.estado, permisos: c.permisos };
+};
 
 // POST /api/auth/register  { email, password, name }
 const register = async (req, res) => {
@@ -50,7 +55,14 @@ const register = async (req, res) => {
         if (await User.exists({ email })) return res.status(409).json({ message: 'Ese correo ya tiene una cuenta' });
 
         const primera = (await User.estimatedDocumentCount()) === 0;
-        const user = await User.create({ email, name, password_hash: await bcrypt.hash(password, 10) });
+        // La primera cuenta es el administrador; las demás esperan su aprobación
+        const user = await User.create({
+            email, name, password_hash: await bcrypt.hash(password, 10),
+            rol: primera ? 'admin' : 'usuario',
+            estado: primera ? 'activo' : 'pendiente',
+            aprobado_en: primera ? new Date() : null
+        });
+        cuentas.anotar('registro', { actor: email, objetivo: email, detalle: primera ? 'administrador' : 'pendiente de aprobación' });
 
         // Las carreras que se subieron antes de existir las cuentas pasan a la primera cuenta
         if (primera) {
@@ -82,6 +94,12 @@ const login = async (req, res) => {
         const user = await User.findOne({ email });
         const ok = user && await bcrypt.compare(password, user.password_hash);
         if (!ok) return res.status(401).json({ message: 'Correo o contraseña incorrectos' });
+        const cuenta = cuentas.normalizar(user.toObject());
+        if (cuenta.estado === 'bloqueado') {
+            return res.status(403).json({ code: 'bloqueado', message: 'Tu cuenta está bloqueada. Habla con el administrador' });
+        }
+        cuentas.anotar('sesion', { actor: email, objetivo: email,
+            detalle: String(req.headers['x-dragmoto-client'] || '').toLowerCase() === 'app' ? 'app' : 'página' });
         res.json({ token: firmarToken(user), user: publico(user) });
     } catch (e) {
         console.error('❌ Error iniciando sesión:', e.message);
@@ -91,9 +109,9 @@ const login = async (req, res) => {
 
 // GET /api/auth/me
 const me = async (req, res) => {
-    if (!dbLista()) return res.json({ id: req.user.id, email: req.user.email, name: '' });
+    if (!dbLista()) return res.json({ id: req.user.id, email: req.user.email, name: '', rol: 'usuario', estado: 'activo', permisos: { web: true, app: true } });
     try {
-        const user = await User.findById(req.user.id);
+        const user = await User.findById(req.user.id).lean();
         if (!user) return res.status(401).json({ message: 'La cuenta ya no existe' });
         res.json(publico(user));
     } catch (e) {

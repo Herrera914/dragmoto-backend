@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#07080c">
+<title>DragMoto — Administración</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* Mismos tokens que el panel principal (index.html) */
+:root{
+  --bg:#07080c; --s1:#0c0e14; --s2:#11141c; --s3:#171b26;
+  --line:#222839; --line2:#2e3548;
+  --text:#eef0f6; --muted:#8b91a8; --dim:#5c6278;
+  --red:#ff3b5c; --amber:#ffb020; --green:#19e68c; --blue:#2bb8ff; --yellow:#ffe14d;
+  --r:14px; --pad:clamp(12px,2vw,28px);
+  --f-num:'Orbitron',monospace; --f-txt:'Rajdhani',sans-serif; --f-mono:'Share Tech Mono',monospace;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;background:var(--bg);color:var(--text);font:500 15px var(--f-txt);overflow-x:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.top{position:sticky;top:0;z-index:5;background:rgba(7,8,12,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top-in{max-width:1400px;margin:0 auto;padding:12px var(--pad);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-mark{width:34px;height:34px;display:grid;place-items:center;border:1.5px solid var(--red);border-radius:9px;font:900 11px var(--f-num);color:var(--red)}
+.brand-name{font:900 15px var(--f-num);letter-spacing:.2em}
+.brand-name b{color:var(--red)}
+.tag{padding:4px 9px;border-radius:999px;border:1px solid rgba(255,225,77,.45);color:var(--yellow);font:700 10px var(--f-num);letter-spacing:.14em}
+.top-r{margin-left:auto;display:flex;gap:8px;align-items:center}
+.lnk{padding:7px 12px;border-radius:999px;border:1px solid var(--line2);color:var(--muted);font:600 13px var(--f-txt);text-decoration:none}
+.lnk:hover{color:var(--text);border-color:var(--red)}
+main{max-width:1400px;margin:0 auto;padding:20px var(--pad) 48px;display:flex;flex-direction:column;gap:22px}
+h2{font:900 13px var(--f-num);letter-spacing:.16em;color:var(--muted);margin-bottom:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{padding:16px;border-radius:var(--r);border:1px solid var(--line);background:linear-gradient(180deg,var(--s2),var(--s1))}
+.kpi .l{font:700 11px var(--f-txt);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.kpi .v{font:900 30px/1 var(--f-num);margin-top:10px;font-variant-numeric:tabular-nums}
+.kpi.warn .v{color:var(--amber)} .kpi.ok .v{color:var(--green)} .kpi.bad .v{color:var(--red)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.tools input,.tools select{padding:10px 12px;border-radius:10px;border:1px solid var(--line2);background:var(--s1);color:var(--text);font:600 15px var(--f-txt)}
+.tools input{flex:1 1 220px;min-width:0}
+.users{display:flex;flex-direction:column;gap:10px}
+.u{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1.3fr);gap:12px 18px;align-items:center;padding:14px 16px;border-radius:var(--r);border:1px solid var(--line);background:var(--s1)}
+.u.pend{border-color:rgba(255,176,32,.45)}
+.u.blk{opacity:.75}
+.who{min-width:0}
+.who .n{font:700 17px var(--f-txt);overflow-wrap:anywhere}
+.who .e{color:var(--muted);font:500 14px var(--f-mono);overflow-wrap:anywhere}
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.b{padding:3px 8px;border-radius:6px;font:700 10px var(--f-num);letter-spacing:.08em;border:1px solid var(--line2);color:var(--muted)}
+.b.activo{color:var(--green);border-color:rgba(25,230,140,.4)}
+.b.pendiente{color:var(--amber);border-color:rgba(255,176,32,.5)}
+.b.bloqueado{color:var(--red);border-color:rgba(255,59,92,.5)}
+.b.admin{color:var(--yellow);border-color:rgba(255,225,77,.45)}
+.b.vivo{color:var(--blue);border-color:rgba(43,184,255,.45)}
+.meta{color:var(--muted);font:500 14px/1.5 var(--f-txt)}
+.meta b{color:var(--text);font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stats div{min-width:0}
+.stats .l{font:700 11px var(--f-txt);letter-spacing:.08em;text-transform:uppercase;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stats .v{font:700 16px var(--f-num);margin-top:4px;font-variant-numeric:tabular-nums}
+.acts{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding-top:12px;border-top:1px solid var(--line)}
+.btn{padding:8px 11px;border-radius:9px;border:1px solid var(--line2);font:700 10px var(--f-num);letter-spacing:.08em;color:var(--muted);white-space:nowrap}
+.btn:hover{color:var(--text);border-color:var(--muted)}
+.btn.go{color:#04170d;background:var(--green);border-color:var(--green)}
+.btn.danger:hover{color:var(--red);border-color:var(--red)}
+.sw{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:9px;border:1px solid var(--line2);font:600 13px var(--f-txt);color:var(--muted)}
+.sw i{width:26px;height:15px;border-radius:999px;background:var(--line2);position:relative;transition:background .2s}
+.sw i::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:var(--muted);transition:transform .2s,background .2s}
+.sw[aria-checked="true"]{color:var(--text)}
+.sw[aria-checked="true"] i{background:rgba(25,230,140,.35)}
+.sw[aria-checked="true"] i::after{transform:translateX(11px);background:var(--green)}
+.sw:disabled{opacity:.45;cursor:not-allowed}
+.empty{padding:28px;text-align:center;color:var(--muted);border:1px dashed var(--line2);border-radius:var(--r)}
+.log{border:1px solid var(--line);border-radius:var(--r);background:var(--s1);overflow:hidden}
+.log li{list-style:none;display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);font:500 14px var(--f-txt)}
+.log li:last-child{border-bottom:0}
+.log time{color:var(--dim);font:500 13px var(--f-mono)}
+.log .a{color:var(--text);font-weight:700}
+.log .d{color:var(--muted);overflow-wrap:anywhere}
+.note{color:var(--muted);font:500 14px var(--f-txt)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:20;padding:11px 16px;border-radius:10px;background:var(--s3);border:1px solid var(--line2);font:600 15px var(--f-txt);max-width:calc(100% - 32px)}
+.toast.err{border-color:var(--red);color:#ffd5dc}
+.modal{position:fixed;inset:0;z-index:30;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.6)}
+.modal-c{width:100%;max-width:420px;padding:22px;border-radius:var(--r);background:var(--s1);border:1px solid var(--line2)}
+.modal-c h3{font:900 15px var(--f-num);letter-spacing:.06em;margin-bottom:10px}
+.modal-c p{color:var(--muted);font:500 16px/1.45 var(--f-txt)}
+.modal-c label{display:flex;gap:8px;align-items:center;margin-top:14px;font:600 15px var(--f-txt)}
+.modal-r{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.gate{max-width:440px;margin:12vh auto;padding:24px;text-align:center;border:1px solid var(--line);border-radius:var(--r);background:var(--s1)}
+.gate p{color:var(--muted);margin:10px 0 16px;font:500 16px var(--f-txt)}
+@media (max-width:900px){
+  .u{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .stats{grid-column:1/-1}
+}
+@media (max-width:600px){
+  .u{grid-template-columns:minmax(0,1fr)}
+  .log li{grid-template-columns:minmax(0,1fr);gap:2px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <div class="brand"><div class="brand-mark" aria-hidden="true">DM</div><div class="brand-name">DRAG<b>MOTO</b></div></div>
+  <span class="tag">ADMIN</span>
+  <div class="top-r">
+    <a class="lnk" href="/">Volver al panel</a>
+  </div>
+</div></header>
+
+<main id="main" hidden>
+  <section aria-labelledby="hRes">
+    <h2 id="hRes">RESUMEN</h2>
+    <div class="kpis" id="kpis"></div>
+  </section>
+
+  <section aria-labelledby="hUsr">
+    <h2 id="hUsr">CUENTAS</h2>
+    <div class="tools">
+      <input id="q" type="search" placeholder="Buscar por nombre o correo" aria-label="Buscar cuentas">
+      <select id="fEstado" aria-label="Filtrar por estado">
+        <option value="">Todas</option>
+        <option value="pendiente">Pendientes</option>
+        <option value="activo">Activas</option>
+        <option value="bloqueado">Bloqueadas</option>
+      </select>
+    </div>
+    <div class="users" id="users"></div>
+  </section>
+
+  <section aria-labelledby="hAct">
+    <h2 id="hAct">ACTIVIDAD RECIENTE</h2>
+    <ul class="log" id="log"></ul>
+  </section>
+  <p class="note">Se actualiza solo cada 15 segundos. Las cuentas nuevas quedan en espera hasta que las apruebes.</p>
+</main>
+
+<div class="gate" id="gate" hidden>
+  <div class="brand" style="justify-content:center"><div class="brand-mark">DM</div><div class="brand-name">DRAG<b>MOTO</b></div></div>
+  <p id="gateMsg">Esta sección es solo para el administrador.</p>
+  <a class="lnk" href="/">Ir al panel</a>
+</div>
+
+<script>
+(function() {
+  var token = null;
+  try { token = localStorage.getItem('dm_token'); } catch (_) {}
+  var $ = function(id) { return document.getElementById(id); };
+  var datos = { usuarios: [], resumen: null, actividad: [] };
+
+  function api(method, url, body) {
+    var h = { 'X-DragMoto-Client': 'web' };
+    if (token) h.Authorization = 'Bearer ' + token;
+    if (body) h['Content-Type'] = 'application/json';
+    return fetch(url, { method: method, headers: h, body: body ? JSON.stringify(body) : undefined }).then(function(r) {
+      return r.json().catch(function() { return {}; }).then(function(d) {
+        if (r.status === 401) { location.href = '/'; throw new Error('sesión'); }
+        if (!r.ok) throw new Error(d.message || 'Error ' + r.status);
+        return d;
+      });
+    });
+  }
+
+  function el(tag, attrs, kids) {
+    var n = document.createElement(tag);
+    for (var k in (attrs || {})) {
+      if (k === 'text') n.textContent = attrs[k];
+      else if (k === 'class') n.className = attrs[k];
+      else if (k.slice(0, 2) === 'on') n.addEventListener(k.slice(2), attrs[k]);
+      else if (attrs[k] !== null && attrs[k] !== undefined && attrs[k] !== false) n.setAttribute(k, attrs[k]);
+    }
+    (kids || []).forEach(function(c) { if (c) n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return n;
+  }
+
+  var toastT;
+  function toast(msg, err) {
+    var t = document.querySelector('.toast'); if (t) t.remove();
+    t = el('div', { class: 'toast' + (err ? ' err' : ''), role: 'status', text: msg });
+    document.body.appendChild(t); clearTimeout(toastT); toastT = setTimeout(function() { t.remove(); }, 3200);
+  }
+
+  function hace(fecha) {
+    if (!fecha) return 'nunca';
+    var s = (Date.now() - new Date(fecha)) / 1000;
+    if (s < 90) return 'hace un momento';
+    if (s < 3600) return 'hace ' + Math.round(s / 60) + ' min';
+    if (s < 86400) return 'hace ' + Math.round(s / 3600) + ' h';
+    if (s < 86400 * 30) return 'hace ' + Math.round(s / 86400) + ' días';
+    return new Date(fecha).toLocaleDateString('es-CO');
+  }
+  var fecha = function(f) { return f ? new Date(f).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'; };
+  var hora = function(f) { var d = new Date(f); return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }); };
+
+  /* ── confirmación dentro de la página (el visor no muestra confirm()) ── */
+  function confirmar(titulo, texto, boton, opcion) {
+    return new Promise(function(ok) {
+      var chk = opcion ? el('input', { type: 'checkbox', id: 'mChk' }) : null;
+      var cerrar = function(v) { m.remove(); ok(v ? { si: true, opcion: chk ? chk.checked : false } : null); };
+      var m = el('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'mT', onclick: function(e) { if (e.target === m) cerrar(false); } }, [
+        el('div', { class: 'modal-c' }, [
+          el('h3', { id: 'mT', text: titulo }),
+          el('p', { text: texto }),
+          chk ? el('label', { for: 'mChk' }, [chk, opcion]) : null,
+          el('div', { class: 'modal-r' }, [
+            el('button', { class: 'btn', type: 'button', text: 'CANCELAR', onclick: function() { cerrar(false); } }),
+            el('button', { class: 'btn danger', type: 'button', text: boton, onclick: function() { cerrar(true); } })
+          ])
+        ])
+      ]);
+      document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { document.removeEventListener('keydown', esc); if (m.isConnected) cerrar(false); } });
+      document.body.appendChild(m);
+      m.querySelector('.btn').focus();
+    });
+  }
+
+  function cambiar(u, body, msg) {
+    return api('PATCH', '/api/admin/usuarios/' + u.id, body).then(function() { toast(msg); cargar(); })
+      .catch(function(e) { toast(e.message, true); });
+  }
+
+  /* ── pintar ── */
+  function kpis() {
+    var r = datos.resumen; if (!r) return;
+    var items = [
+      ['Cuentas', r.cuentas, ''], ['Pendientes', r.pendiente, r.pendiente ? 'warn' : ''],
+      ['Activas', r.activo, 'ok'], ['Bloqueadas', r.bloqueado, r.bloqueado ? 'bad' : ''],
+      ['En línea ahora', r.en_linea, ''], ['Motos conectadas', r.motos_conectadas, ''],
+      ['Carreras', r.carreras, ''], ['Carreras 7 días', r.carreras_7d, '']
+    ];
+    var box = $('kpis'); box.textContent = '';
+    items.forEach(function(i) { box.appendChild(el('div', { class: 'kpi ' + i[2] }, [el('div', { class: 'l', text: i[0] }), el('div', { class: 'v', text: String(i[1]) })])); });
+  }
+
+  function interruptor(u, clave, nombre) {
+    var on = u.permisos[clave];
+    var bloqueado = u.yo && clave === 'web';
+    return el('button', {
+      class: 'sw', type: 'button', role: 'switch', 'aria-checked': String(on), disabled: bloqueado || null,
+      title: bloqueado ? 'No puedes quitarte el acceso a la página' : (on ? 'Quitar permiso de ' : 'Dar permiso de ') + nombre.toLowerCase(),
+      onclick: function() { var p = {}; p[clave] = !on; cambiar(u, { permisos: p }, nombre + (on ? ' quitada' : ' permitida') + ' para ' + u.email); }
+    }, [el('i', { 'aria-hidden': 'true' }), nombre]);
+  }
+
+  function fila(u) {
+    var badges = [el('span', { class: 'b ' + u.estado, text: u.estado.toUpperCase() })];
+    if (u.rol === 'admin') badges.push(el('span', { class: 'b admin', text: 'ADMIN' }));
+    if (u.en_linea) badges.push(el('span', { class: 'b vivo', text: 'EN LÍNEA' }));
+    if (u.moto_conectada) badges.push(el('span', { class: 'b vivo', text: 'MOTO' }));
+    if (u.yo) badges.push(el('span', { class: 'b', text: 'TÚ' }));
+
+    var acts = [];
+    if (u.estado === 'pendiente') acts.push(el('button', { class: 'btn go', type: 'button', text: 'APROBAR', onclick: function() { cambiar(u, { estado: 'activo' }, 'Cuenta aprobada: ' + u.email); } }));
+    if (!u.yo && u.estado !== 'bloqueado') acts.push(el('button', { class: 'btn danger', type: 'button', text: 'BLOQUEAR', onclick: function() {
+      confirmar('¿Bloquear esta cuenta?', u.email + ' no podrá usar la página ni la app hasta que la desbloquees. Sus carreras se conservan.', 'BLOQUEAR')
+        .then(function(r) { if (r) cambiar(u, { estado: 'bloqueado' }, 'Cuenta bloqueada: ' + u.email); });
+    } }));
+    if (u.estado === 'bloqueado') acts.push(el('button', { class: 'btn', type: 'button', text: 'DESBLOQUEAR', onclick: function() { cambiar(u, { estado: 'activo' }, 'Cuenta desbloqueada: ' + u.email); } }));
+    acts.push(interruptor(u, 'web', 'Página'), interruptor(u, 'app', 'App'));
+    if (!u.yo) acts.push(el('button', { class: 'btn', type: 'button', text: u.rol === 'admin' ? 'QUITAR ADMIN' : 'HACER ADMIN', onclick: function() {
+      var dar = u.rol !== 'admin';
+      confirmar(dar ? '¿Hacer administrador?' : '¿Quitar administrador?',
+        dar ? u.email + ' podrá ver este panel, aprobar, bloquear y eliminar cuentas.' : u.email + ' dejará de ver este panel.', dar ? 'HACER ADMIN' : 'QUITAR')
+        .then(function(r) { if (r) cambiar(u, { rol: dar ? 'admin' : 'usuario' }, dar ? u.email + ' ahora es administrador' : u.email + ' ya no es administrador'); });
+    } }));
+    if (!u.yo) acts.push(el('button', { class: 'btn danger', type: 'button', text: 'ELIMINAR', onclick: function() {
+      confirmar('¿Eliminar esta cuenta?', 'Se borra la cuenta de ' + u.email + ' y no se puede deshacer. Podrá volver a registrarse con ese correo.', 'ELIMINAR',
+        'Borrar también sus ' + u.carreras + ' carreras')
+        .then(function(r) {
+          if (!r) return;
+          api('DELETE', '/api/admin/usuarios/' + u.id + (r.opcion ? '?carreras=1' : ''))
+            .then(function(d) { toast('Cuenta eliminada' + (r.opcion ? ' con ' + d.carreras_borradas + ' carreras' : '')); cargar(); })
+            .catch(function(e) { toast(e.message, true); });
+        });
+    } }));
+
+    var uso = u.ultimo_uso ? hace(u.ultimo_uso) + (u.ultimo_cliente ? ' · ' + (u.ultimo_cliente === 'app' ? 'app' : 'página') : '') : 'todavía no la usa';
+    return el('article', { class: 'u' + (u.estado === 'pendiente' ? ' pend' : '') + (u.estado === 'bloqueado' ? ' blk' : '') }, [
+      el('div', { class: 'who' }, [
+        el('div', { class: 'n', text: u.name || u.email.split('@')[0] }),
+        el('div', { class: 'e', text: u.email }),
+        el('div', { class: 'badges' }, badges)
+      ]),
+      el('div', { class: 'meta' }, [
+        'Registro: ', el('b', { text: fecha(u.creado) }), el('br'),
+        'Último uso: ', el('b', { text: uso })
+      ]),
+      el('div', { class: 'stats' }, [
+        el('div', {}, [el('div', { class: 'l', text: 'Carreras' }), el('div', { class: 'v', text: String(u.carreras) })]),
+        el('div', {}, [el('div', { class: 'l', text: 'Vmáx' }), el('div', { class: 'v', text: u.vmax != null ? Math.round(u.vmax) + ' km/h' : '—' })]),
+        el('div', {}, [el('div', { class: 'l', text: 'Mejor 402 m' }), el('div', { class: 'v', text: u.mejor_402 != null ? u.mejor_402.toFixed(2) + ' s' : '—' })])
+      ]),
+      el('div', { class: 'acts' }, acts)
+    ]);
+  }
+
+  function lista() {
+    var q = $('q').value.trim().toLowerCase(), f = $('fEstado').value;
+    var orden = { pendiente: 0, activo: 1, bloqueado: 2 };
+    var us = datos.usuarios
+      .filter(function(u) { return (!f || u.estado === f) && (!q || (u.email + ' ' + u.name).toLowerCase().indexOf(q) >= 0); })
+      .sort(function(a, b) { return (orden[a.estado] - orden[b.estado]) || (new Date(b.creado) - new Date(a.creado)); });
+    var box = $('users'); box.textContent = '';
+    if (!us.length) box.appendChild(el('div', { class: 'empty', text: datos.usuarios.length ? 'Ninguna cuenta coincide con la búsqueda.' : 'Todavía no hay cuentas.' }));
+    us.forEach(function(u) { box.appendChild(fila(u)); });
+  }
+
+  var NOMBRES = { registro: 'Registro', sesion: 'Inicio de sesión', aprobada: 'Cuenta aprobada', bloqueada: 'Cuenta bloqueada', cambio: 'Cambio', eliminada: 'Cuenta eliminada' };
+  function log() {
+    var box = $('log'); box.textContent = '';
+    if (!datos.actividad.length) { box.appendChild(el('li', {}, [el('span', { class: 'd', text: 'Sin actividad todavía.' })])); return; }
+    datos.actividad.slice(0, 60).forEach(function(a) {
+      var quien = a.actor && a.actor !== a.objetivo ? a.actor + ' → ' : '';
+      box.appendChild(el('li', {}, [
+        el('time', { datetime: a.en, text: hora(a.en) }),
+        el('div', {}, [el('span', { class: 'a', text: (NOMBRES[a.accion] || a.accion) + ' ' }), el('span', { class: 'd', text: quien + (a.objetivo || '') + (a.detalle ? ' · ' + a.detalle : '') })])
+      ]));
+    });
+  }
+
+  function cargar() {
+    return Promise.all([api('GET', '/api/admin/resumen'), api('GET', '/api/admin/usuarios'), api('GET', '/api/admin/actividad')])
+      .then(function(r) { datos.resumen = r[0]; datos.usuarios = r[1]; datos.actividad = r[2]; kpis(); lista(); log(); })
+      .catch(function(e) { if (e.message !== 'sesión') toast(e.message, true); });
+  }
+
+  function puerta(msg) { $('gateMsg').textContent = msg; $('gate').hidden = false; }
+
+  if (!token) { location.href = '/'; return; }
+  api('GET', '/api/auth/me').then(function(u) {
+    if (u.rol !== 'admin') { puerta('Esta sección es solo para el administrador de DragMoto.'); return; }
+    $('main').hidden = false;
+    $('q').addEventListener('input', lista);
+    $('fEstado').addEventListener('change', lista);
+    cargar();
+    setInterval(function() { if (!document.hidden && !document.querySelector('.modal')) cargar(); }, 15000);
+  }).catch(function(e) { if (e.message !== 'sesión') puerta('No se pudo conectar con el servidor. ' + e.message); });
+})();
+</script>
+</body>
+</html>
