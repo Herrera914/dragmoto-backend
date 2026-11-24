@@ -84,6 +84,8 @@ app.set('enVivo', () => {
 app.use('/api/auth', authRoutes);
 app.use('/api/runs', runRoutes);   // exige sesión (ver routes/runs.js)
 app.use('/api/admin', adminRoutes); // solo administradores
+// Foto de perfil de una cuenta (la propia o, para administradores, cualquiera)
+app.get('/api/usuarios/:id/foto', require('./middleware/auth').requireSesion, require('./controllers/fotoController').ver);
 // Última versión de la app (pública: la app avisa si hay una más nueva)
 app.get('/api/app/version', require('./controllers/appVersionController').obtener);
 

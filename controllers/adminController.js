@@ -79,7 +79,8 @@ const usuarios = async (req, res) => {
                 vmax: k.vmax ?? null,
                 mejor_402: k.mejor_402 ?? null,
                 ultima_carrera: k.ultima ?? null,
-                yo: c.id === req.user.id
+                yo: c.id === req.user.id,
+                foto: require('./fotoController').urlFoto(u)
             };
         }));
     } catch (e) {

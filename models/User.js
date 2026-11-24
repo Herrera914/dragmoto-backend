@@ -19,7 +19,13 @@ const UserSchema = new mongoose.Schema({
     clave_cambiada_en: { type: Date, default: null },
     nota:           { type: String, default: '', maxlength: 200 },   // nota interna del admin
     ultimo_uso:     { type: Date, default: null },
-    ultimo_cliente: { type: String, default: null }                   // 'web' | 'app'
+    ultimo_cliente: { type: String, default: null },                  // 'web' | 'app'
+
+    // Foto de perfil: imagen pequeña (≤ 200 KB) que la app ya manda recortada.
+    // No se carga en las consultas normales (select: false); se sirve aparte.
+    foto:      { type: Buffer, default: null, select: false },
+    foto_tipo: { type: String, default: null },   // image/jpeg | image/png | image/webp
+    foto_v:    { type: Number, default: null }    // versión (ms): cambia la URL y los clientes la recargan
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

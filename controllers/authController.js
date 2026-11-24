@@ -4,6 +4,7 @@ const User     = require('../models/User');
 const Run      = require('../models/Run');
 const { firmarToken } = require('../middleware/auth');
 const cuentas  = require('../lib/cuentas');
+const foto     = require('./fotoController');
 
 const EMAIL_RE   = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASS   = 6;
@@ -35,7 +36,7 @@ const dbLista = () => mongoose.connection.readyState === 1;
 const publico = (u) => {
     const c = cuentas.normalizar(u);
     return { id: c.id, email: c.email, name: u.name || '', rol: c.rol, estado: c.estado, permisos: c.permisos,
-             creado: u.createdAt || null };
+             creado: u.createdAt || null, foto: foto.urlFoto(u) };
 };
 
 // POST /api/auth/register  { email, password, name }
@@ -169,4 +170,8 @@ const actualizarPerfil = async (req, res) => {
     }
 };
 
-module.exports = { register, login, me, cambiarClave, actualizarPerfil };
+// Foto de perfil (la lógica vive en fotoController; aquí se responde con la cuenta pública)
+const subirFoto  = (req, res) => foto.subir(req, res, publico);
+const quitarFoto = (req, res) => foto.quitar(req, res, publico);
+
+module.exports = { register, login, me, cambiarClave, actualizarPerfil, subirFoto, quitarFoto };
