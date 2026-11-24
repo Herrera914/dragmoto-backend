@@ -46,7 +46,10 @@ h2{font:900 13px var(--f-num);letter-spacing:.16em;color:var(--muted);margin-bot
 .u{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1.3fr);gap:12px 18px;align-items:center;padding:14px 16px;border-radius:var(--r);border:1px solid var(--line);background:var(--s1)}
 .u.pend{border-color:rgba(255,176,32,.45)}
 .u.blk{opacity:.75}
-.who{min-width:0}
+.who{min-width:0;display:grid;grid-template-columns:44px minmax(0,1fr);column-gap:12px;align-items:start}
+.who > :not(.av){grid-column:2}
+.av{grid-row:1/span 3;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font:900 15px var(--f-num);color:#fff;overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover}
 .who .n{font:700 17px var(--f-txt);overflow-wrap:anywhere}
 .who .e{color:var(--muted);font:500 14px var(--f-mono);overflow-wrap:anywhere}
 .badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
@@ -291,6 +294,28 @@ h2{font:900 13px var(--f-num);letter-spacing:.16em;color:var(--muted);margin-bot
     }, [el('i', { 'aria-hidden': 'true' }), nombre]);
   }
 
+  /* Avatar de una cuenta: iniciales con su color y, si tiene foto, la foto (se pide con la sesión) */
+  var COLORES = ['#FF3B30', '#FF6B00', '#00B4FF', '#00C853', '#AA66FF', '#FF2D7A'];
+  var fotos = {};   // url -> blob URL (para no pedirla en cada actualización)
+  function hash(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return h; }
+  function iniciales(u) {
+    var p = (u.name || '').trim().split(/\s+/).filter(Boolean);
+    return (p.length >= 2 ? p[0][0] + p[1][0] : p.length ? p[0].slice(0, 2) : u.email.split('@')[0].slice(0, 2)).toUpperCase();
+  }
+  function avatar(u) {
+    var h = hash(u.email.toLowerCase());
+    var box = el('div', { class: 'av', style: 'background:' + COLORES[((h % 6) + 6) % 6], 'aria-hidden': 'true', text: iniciales(u) });
+    if (u.foto) {
+      var poner = function(src) { box.textContent = ''; box.appendChild(el('img', { src: src, alt: '' })); };
+      if (fotos[u.foto]) poner(fotos[u.foto]);
+      else fetch(u.foto, { headers: { Authorization: 'Bearer ' + token, 'X-DragMoto-Client': 'web' } })
+        .then(function(r) { return r.ok ? r.blob() : null; })
+        .then(function(b) { if (b) { fotos[u.foto] = URL.createObjectURL(b); poner(fotos[u.foto]); } })
+        .catch(function() {});
+    }
+    return box;
+  }
+
   function fila(u) {
     var badges = [el('span', { class: 'b ' + u.estado, text: u.estado.toUpperCase() })];
     if (u.rol === 'admin') badges.push(el('span', { class: 'b admin', text: 'ADMIN' }));
@@ -334,6 +359,7 @@ h2{font:900 13px var(--f-num);letter-spacing:.16em;color:var(--muted);margin-bot
     var uso = u.ultimo_uso ? hace(u.ultimo_uso) + (u.ultimo_cliente ? ' · ' + (u.ultimo_cliente === 'app' ? 'app' : 'página') : '') : 'todavía no la usa';
     return el('article', { class: 'u' + (u.estado === 'pendiente' ? ' pend' : '') + (u.estado === 'bloqueado' ? ' blk' : '') }, [
       el('div', { class: 'who' }, [
+        avatar(u),
         el('div', { class: 'n', text: u.name || u.email.split('@')[0] }),
         el('div', { class: 'e', text: u.email }),
         el('div', { class: 'badges' }, badges)

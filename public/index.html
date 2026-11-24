@@ -485,6 +485,7 @@ td .num{font-size:14px;font-weight:700}
 .auth .btn-go:disabled{opacity:.6;cursor:wait}
 .auth-note{text-align:center;color:var(--dim);font:500 13px var(--f-txt);margin:14px 0 0}
 .pill-user{gap:9px;padding-right:6px}
+.pill-user .who-pic{width:24px;height:24px;border-radius:50%;object-fit:cover;margin-left:-4px;border:1px solid var(--line2)}
 .pill-user .who{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
 .pill-user button{padding:3px 9px;border-radius:999px;border:1px solid var(--line2);font:600 12px var(--f-txt);color:var(--muted)}
 .pill-user button:hover{color:var(--text);border-color:var(--red)}
@@ -580,6 +581,7 @@ td .num{font-size:14px;font-weight:700}
       <span class="dot"></span><span>Moto</span><span class="pill-txt-long">{{ motoConectada ? 'conectada' : 'desconectada' }}</span>
     </div>
     <div class="pill pill-user" ng-show="usuario" title="Cuenta con la que entraste">
+      <img class="who-pic" ng-if="fotoUrl" ng-src="{{ fotoUrl }}" alt="">
       <span class="who">{{ usuario.name || usuario.email }}</span>
       <a href="/admin" ng-if="usuario.rol==='admin'" title="Panel de administración">Admin</a>
       <button type="button" onclick="Clave.abrir()" title="Cambiar contraseña">Clave</button>
@@ -1395,6 +1397,13 @@ app.controller('AppCtrl', function($scope, $timeout, Sock, Tiempos) {
   $scope.prepMsg       = '';
   $scope.demo          = /[?&]demo\b/.test(location.search);
   $scope.usuario       = Auth.user;
+  // Foto de perfil: se pide con la sesión (no es pública) y se muestra como blob
+  $scope.fotoUrl = null;
+  if (Auth.user && Auth.user.foto) {
+    apiFetch(Auth.user.foto).then(function(r) { return r.ok ? r.blob() : null; }).then(function(b) {
+      if (b) $scope.$apply(function() { $scope.fotoUrl = URL.createObjectURL(b); });
+    }).catch(function() {});
+  }
   $scope.salir         = function() { Auth.logout(); };
   $scope.cdi           = { visible: false, stale: false, rpm: 0, peak: 0, advance: null, volts: null, bar: 0 };
 
