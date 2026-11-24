@@ -34,7 +34,8 @@ const dbLista = () => mongoose.connection.readyState === 1;
 // Lo que ve el cliente de su propia cuenta (incluye estado y permisos para mostrar avisos)
 const publico = (u) => {
     const c = cuentas.normalizar(u);
-    return { id: c.id, email: c.email, name: u.name || '', rol: c.rol, estado: c.estado, permisos: c.permisos };
+    return { id: c.id, email: c.email, name: u.name || '', rol: c.rol, estado: c.estado, permisos: c.permisos,
+             creado: u.createdAt || null };
 };
 
 // POST /api/auth/register  { email, password, name }
@@ -151,4 +152,21 @@ const cambiarClave = async (req, res) => {
     }
 };
 
-module.exports = { register, login, me, cambiarClave };
+// PATCH /api/auth/perfil  { name } — cambia el nombre que se muestra (perfil de la app y la página)
+const actualizarPerfil = async (req, res) => {
+    if (!dbLista()) return res.status(503).json({ message: 'La base de datos no está disponible' });
+    if (typeof req.body?.name !== 'string') return res.status(400).json({ message: 'Falta el nombre' });
+    const name = req.body.name.trim().replace(/\s+/g, ' ').slice(0, 40);
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(401).json({ message: 'La cuenta ya no existe' });
+        user.name = name;
+        await user.save();
+        res.json(publico(user));
+    } catch (e) {
+        console.error('❌ Actualizando perfil:', e.message);
+        res.status(500).json({ message: 'Error interno del servidor' });
+    }
+};
+
+module.exports = { register, login, me, cambiarClave, actualizarPerfil };

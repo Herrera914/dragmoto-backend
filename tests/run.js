@@ -3,7 +3,7 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 
-const pruebas = ['cuentas.test.js', 'admin.test.js', 'clave.test.js', 'version.test.js'];
+const pruebas = ['cuentas.test.js', 'admin.test.js', 'clave.test.js', 'version.test.js', 'perfil.test.js'];
 let fallidas = 0;
 for (const p of pruebas) {
     console.log(`\n▶ ${p}`);
